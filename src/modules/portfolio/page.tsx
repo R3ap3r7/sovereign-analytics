@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { PerformanceChart } from '../../components/charts/analytics'
 import { LoadingPanel, Page, Panel, SectionTitle, Stat } from '../../components/ui/primitives'
 import { appApi, getSeed } from '../../domain/services/mockApi'
 import { derivePortfolioExposure } from '../../domain/selectors'
@@ -37,6 +38,39 @@ export const PortfolioPage = () => {
         <Stat label="Margin used" value={formatCurrency(data.portfolio.marginUsed)} />
         <Stat label="Free margin" value={formatCurrency(data.portfolio.freeMargin)} />
       </Panel>
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <Panel>
+          <SectionTitle eyebrow="Performance curve" title="Equity and closed-trade progression" />
+          <PerformanceChart
+            data={[
+              { label: 'Start', equity: data.portfolio.startingBalance ?? data.portfolio.balance },
+              ...data.closedPositions.map((_, index) => ({
+                label: `T${index + 1}`,
+                equity:
+                  (data.portfolio.startingBalance ?? data.portfolio.balance) +
+                  data.closedPositions.slice(0, index + 1).reduce((acc, item) => acc + (item.realizedPnL ?? 0), 0),
+              })),
+              { label: 'Now', equity: data.portfolio.equity },
+            ]}
+            labelKey="label"
+            valueKey="equity"
+          />
+        </Panel>
+        <Panel>
+          <SectionTitle eyebrow="Order history" title="Recent account actions" />
+          <div className="space-y-3">
+            {data.orders.slice(0, 8).map((order) => (
+              <div className="rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={order.id}>
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{order.action}</div>
+                  <div className="text-sm text-[var(--muted)]">{order.pairId.toUpperCase()}</div>
+                </div>
+                <div className="mt-2 text-sm text-[var(--muted)]">{order.detail}</div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Panel>
           <SectionTitle eyebrow="Open positions" title="Live paper trades" />

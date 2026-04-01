@@ -159,6 +159,14 @@ export const derivePortfolioExposure = (
 }
 
 export const evaluateAlertStatus = (alert: AlertRule, seed: SeedData, mutation: AdminMarketMutation): AlertRule => {
+  if (alert.conditionType === 'price_cross') {
+    const series = seed.priceSeries.find((item) => item.pairId === alert.entityId && item.timeframe === '1D')
+    const last = series?.points.at(-1)?.value ?? 0
+    const threshold = Number(alert.threshold)
+    if (Number.isFinite(threshold) && last >= threshold) {
+      return { ...alert, status: 'triggered', lastTriggeredAt: new Date().toISOString() }
+    }
+  }
   if (alert.conditionType === 'event_approaching') {
     const event = seed.events.find((item) => item.id === alert.entityId)
     if (event && event.urgency > 85) {
@@ -172,6 +180,14 @@ export const evaluateAlertStatus = (alert: AlertRule, seed: SeedData, mutation: 
   if (alert.conditionType === 'macro_risk_change') {
     const currency = seed.currencies.find((item) => item.code === alert.entityId)
     if (currency && (currency.riskScore + (mutation.currencyShifts[currency.code] ?? 0)) > 72) {
+      return { ...alert, status: 'triggered', lastTriggeredAt: new Date().toISOString() }
+    }
+  }
+  if (alert.conditionType === 'uncertainty_widening') {
+    const forecast = seed.forecasts.find((item) => item.id === alert.entityId || item.pairId === alert.entityId)
+    const width = forecast ? Math.max(...forecast.uncertaintyCurve) : 0
+    const threshold = Number(alert.threshold)
+    if (forecast && Number.isFinite(threshold) && width >= threshold / 100) {
       return { ...alert, status: 'triggered', lastTriggeredAt: new Date().toISOString() }
     }
   }
@@ -278,7 +294,12 @@ export const recalculatePortfolio = (
   const realized = closedPositions.reduce((acc, item) => acc + (item.realizedPnL ?? 0), 0)
   const unrealized = openPositions.reduce((acc, item) => acc + item.unrealizedPnL, 0)
   const marginUsed = openPositions.reduce(
-    (acc, item) => acc + (item.entry * item.size) / Math.max(item.leverage, 1),
+    (acc, item) => {
+      const [base, quote] = item.pairId.toUpperCase().split('-')
+      const notional =
+        quote === 'USD' ? item.entry * item.size : base === 'USD' ? item.size : item.entry * item.size * 0.72
+      return acc + notional / Math.max(item.leverage, 1)
+    },
     0,
   )
   const balance = (portfolio.startingBalance ?? portfolio.balance) + realized

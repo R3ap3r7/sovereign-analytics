@@ -169,7 +169,9 @@ export const MarketComparePage = () => {
 export const PairDetailPage = () => {
   const params = useParams()
   const { setActiveSimulation, user } = useAppState()
-  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '6M' | '1Y'>('3M')
+  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '6M' | '1Y'>(user?.settings.chartDefaults.timeframe ?? '3M')
+  const [chartMode, setChartMode] = useState<'line' | 'area' | 'candlestick'>(user?.settings.chartDefaults.chartMode ?? 'line')
+  const [overlays, setOverlays] = useState<string[]>(user?.settings.chartDefaults.overlays ?? ['ma', 'forecast'])
   const [watched, setWatched] = useState(false)
   const { data, loading } = useAsyncResource(() => appApi.getPairWorkspace(params.pairId ?? ''), [params.pairId, user?.id])
   useEffect(() => {
@@ -226,8 +228,23 @@ export const PairDetailPage = () => {
                 {value}
               </button>
             ))}
+            {(['line', 'area', 'candlestick'] as const).map((value) => (
+              <button className={`rounded-full border px-3 py-1.5 text-xs ${value === chartMode ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-[var(--line)] text-[var(--muted)]'}`} key={value} onClick={() => setChartMode(value)} type="button">
+                {value}
+              </button>
+            ))}
+            {['ma', 'bands', 'forecast'].map((overlay) => (
+              <button
+                className={`rounded-full border px-3 py-1.5 text-xs ${overlays.includes(overlay) ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-[var(--line)] text-[var(--muted)]'}`}
+                key={overlay}
+                onClick={() => setOverlays((items) => items.includes(overlay) ? items.filter((item) => item !== overlay) : [...items, overlay])}
+                type="button"
+              >
+                {overlay}
+              </button>
+            ))}
           </div>
-          <PriceChart forecast={data.forecast} series={selectedSeries} showForecast />
+          <PriceChart chartMode={chartMode} forecast={data.forecast} overlays={overlays} series={selectedSeries} showForecast={overlays.includes('forecast')} />
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Stat label="RSI" value={formatNumber(data.technical.rsi, 0)} help={data.technical.rsi > 65 ? 'Elevated momentum with overbought risk.' : 'Momentum is not yet stretched.'} />
             <Stat label="MACD" value={formatNumber(data.technical.macd)} help="Directional impulse versus signal line." />
