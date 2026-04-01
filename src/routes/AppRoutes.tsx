@@ -31,10 +31,34 @@ const OnboardingPage = () => {
   const [defaultAccountCurrency, setDefaultAccountCurrency] = useState(user?.defaultAccountCurrency ?? 'USD')
   return (
     <Page title="Onboarding" description="Initial preferences shape the dashboard layout, simulation defaults, and the ranking of currencies, pairs, and events.">
-      <Panel className="mx-auto max-w-3xl">
-        <div className="grid gap-4 md:grid-cols-2">
+      <Panel className="mx-auto max-w-5xl">
+        <div className="grid gap-6 xl:grid-cols-[0.68fr_1fr]">
+          <div className="space-y-4">
+            <div className="rounded-[1.5rem] border border-[var(--line)] bg-[color:var(--panel-4)] p-5">
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">Setup / Persona tuning</div>
+              <h2 className="font-display mt-3 text-2xl font-semibold tracking-[-0.03em]">Shape the default research terminal.</h2>
+              <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+                These settings immediately affect dashboard ranking, simulation defaults, chart setup, and how currencies, pairs, and macro events are prioritized.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1">
+              <div className="rounded-[1.4rem] border border-[var(--line)] bg-[color:var(--panel-2)]/75 p-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Macro-first</div>
+                <div className="mt-2 text-sm text-[var(--muted)]">Prioritizes country intelligence, event risk, and narrative boards.</div>
+              </div>
+              <div className="rounded-[1.4rem] border border-[var(--line)] bg-[color:var(--panel-2)]/75 p-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Technical-first</div>
+                <div className="mt-2 text-sm text-[var(--muted)]">Brings pair structure, chart overlays, and trend status forward.</div>
+              </div>
+              <div className="rounded-[1.4rem] border border-[var(--line)] bg-[color:var(--panel-2)]/75 p-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Simulation-first</div>
+                <div className="mt-2 text-sm text-[var(--muted)]">Defaults to capital, leverage, and saved scenario continuation workflows.</div>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm text-[var(--muted)]">Experience level
-            <select className="mt-2 w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={experienceLevel} onChange={(event) => setExperienceLevel(event.target.value as ExperienceLevel)}>
+            <select className="mt-2 w-full rounded-[1.2rem] border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={experienceLevel} onChange={(event) => setExperienceLevel(event.target.value as ExperienceLevel)}>
               <option value="beginner">beginner</option>
               <option value="intermediate">intermediate</option>
               <option value="advanced">advanced</option>
@@ -42,58 +66,62 @@ const OnboardingPage = () => {
             </select>
           </label>
           <label className="text-sm text-[var(--muted)]">Primary focus
-              <select className="mt-2 w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={focus} onChange={(event) => setFocus(event.target.value as typeof focus)}>
+              <select className="mt-2 w-full rounded-[1.2rem] border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={focus} onChange={(event) => setFocus(event.target.value as typeof focus)}>
               <option value="macro">Macro context</option>
               <option value="technical">Technical analysis</option>
               <option value="simulation">Simulation</option>
             </select>
           </label>
           <label className="text-sm text-[var(--muted)]">Favorite currencies
-            <input className="mt-2 w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={favoriteCurrencies} onChange={(event) => setFavoriteCurrencies(event.target.value)} />
+            <input className="mt-2 w-full rounded-[1.2rem] border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={favoriteCurrencies} onChange={(event) => setFavoriteCurrencies(event.target.value)} />
           </label>
           <label className="text-sm text-[var(--muted)]">Favorite pairs
-            <input className="mt-2 w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={favoritePairs} onChange={(event) => setFavoritePairs(event.target.value)} />
+            <input className="mt-2 w-full rounded-[1.2rem] border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={favoritePairs} onChange={(event) => setFavoritePairs(event.target.value)} />
           </label>
           <label className="text-sm text-[var(--muted)]">Risk profile
-            <select className="mt-2 w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={riskProfile} onChange={(event) => setRiskProfile(event.target.value as typeof riskProfile)}>
+            <select className="mt-2 w-full rounded-[1.2rem] border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={riskProfile} onChange={(event) => setRiskProfile(event.target.value as typeof riskProfile)}>
               <option value="conservative">Conservative</option>
               <option value="balanced">Balanced</option>
               <option value="aggressive">Aggressive</option>
             </select>
           </label>
           <label className="text-sm text-[var(--muted)]">Dashboard style
-            <select className="mt-2 w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={dashboardPreset} onChange={(event) => setDashboardPreset(event.target.value as DashboardMode)}>
+            <select className="mt-2 w-full rounded-[1.2rem] border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={dashboardPreset} onChange={(event) => setDashboardPreset(event.target.value as DashboardMode)}>
               <option value="compact">Compact</option>
               <option value="research-heavy">Research-heavy</option>
               <option value="simulation-heavy">Simulation-heavy</option>
             </select>
           </label>
           <label className="text-sm text-[var(--muted)]">Default account currency
-            <select className="mt-2 w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={defaultAccountCurrency} onChange={(event) => setDefaultAccountCurrency(event.target.value)}>
+            <select className="mt-2 w-full rounded-[1.2rem] border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={defaultAccountCurrency} onChange={(event) => setDefaultAccountCurrency(event.target.value)}>
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
               <option value="JPY">JPY</option>
             </select>
           </label>
-        </div>
-        <div className="mt-6">
-          <PrimaryButton
-            onClick={async () => {
-              await appApi.completeOnboarding({
-                experienceLevel,
-                analysisFocus: focus,
-                favoriteCurrencies: favoriteCurrencies.split(',').map((item) => item.trim()).filter(Boolean),
-                favoritePairs: favoritePairs.split(',').map((item) => item.trim()).filter(Boolean),
-                riskProfile,
-                dashboardPreset: dashboardPreset || (focus === 'simulation' ? 'simulation-heavy' : focus === 'technical' ? 'compact' : 'research-heavy'),
-                defaultAccountCurrency,
-              })
-              await refreshUser()
-            }}
-            type="button"
-          >
-            Finish onboarding
-          </PrimaryButton>
+          <div className="md:col-span-2 rounded-[1.35rem] border border-[var(--line)] bg-[color:var(--panel-4)] p-4 text-sm leading-7 text-[var(--muted)]">
+            Your choices feed the same shared model used on the dashboard, pair pages, event prioritization, and simulation lab defaults.
+          </div>
+          <div className="md:col-span-2 mt-2">
+            <PrimaryButton
+              onClick={async () => {
+                await appApi.completeOnboarding({
+                  experienceLevel,
+                  analysisFocus: focus,
+                  favoriteCurrencies: favoriteCurrencies.split(',').map((item) => item.trim()).filter(Boolean),
+                  favoritePairs: favoritePairs.split(',').map((item) => item.trim()).filter(Boolean),
+                  riskProfile,
+                  dashboardPreset: dashboardPreset || (focus === 'simulation' ? 'simulation-heavy' : focus === 'technical' ? 'compact' : 'research-heavy'),
+                  defaultAccountCurrency,
+                })
+                await refreshUser()
+              }}
+              type="button"
+            >
+              Finish onboarding
+            </PrimaryButton>
+          </div>
+          </div>
         </div>
       </Panel>
     </Page>

@@ -23,3 +23,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Output and temp
+tmp/
+output/
+test-results/

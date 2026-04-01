@@ -1,160 +1,254 @@
 import { Link } from 'react-router-dom'
 import { StrengthChart } from '../../components/charts/analytics'
-import { EventCard, NewsCard, NoteCard, PairCard } from '../../components/domain/cards'
-import { ActionLink, Badge, LoadingPanel, Page, Panel, SectionTitle, Stat } from '../../components/ui/primitives'
 import { appApi, getSeed } from '../../domain/services/mockApi'
 import { buildEntityLabel } from '../../domain/selectors'
 import { formatCurrency } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
 import { useAppState } from '../../app/AppState'
 
+const buildSparklinePath = (values: number[]) => {
+  if (!values.length) return ''
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  return values
+    .map((value, index) => {
+      const x = (index / Math.max(values.length - 1, 1)) * 100
+      const y = 20 - ((value - min) / range) * 18
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`
+    })
+    .join(' ')
+}
+
 export const DashboardPage = () => {
   const { user } = useAppState()
   const { data, loading } = useAsyncResource(() => appApi.getCurrentUserWorkspace(), [user?.id])
   const seed = getSeed()
-  if (loading || !data?.dashboard) return <LoadingPanel label="Loading dashboard workspace…" />
+
+  if (loading || !data?.dashboard || !user) {
+    return <div className="p-6 text-sm text-[var(--muted)]">Loading dashboard workspace…</div>
+  }
+
   const { dashboard } = data
-  const exposure = dashboard.portfolio
-    ? dashboard.portfolio.openPositions.reduce((acc, item) => acc + Math.abs(item.unrealizedPnL), 0)
-    : 0
+  const portfolio = dashboard.portfolio?.portfolio
+  const pairSeries = new Map(
+    seed.priceSeries
+      .filter((series) => series.timeframe === '1M')
+      .map((series) => [series.pairId, series.points.map((point) => point.value)]),
+  )
+
+  const currencyHeat = dashboard.strength.slice(0, 6)
+  const strengthBase = currencyHeat.map((item) => item.strengthScore)
+  const minStrength = Math.min(...strengthBase)
+  const maxStrength = Math.max(...strengthBase)
 
   return (
-    <Page
-      title="Dashboard"
-      description="Personalized macro and pair overview assembled from your favorites, watchlist, portfolio state, and saved analysis."
-      actions={<Badge tone="warning">{user?.settings.dashboardMode}</Badge>}
-    >
-      <Panel className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div>
-          <SectionTitle eyebrow="Session summary" title={`Welcome back, ${user?.displayName}`} detail={dashboard.summary} />
-          <div className="grid gap-3 md:grid-cols-3">
-            <Stat label="Preferred account" value={user?.settings.defaultAccountCurrency} help="Used as the simulation default across the app." />
-            <Stat label="Active watch focus" value={dashboard.watchlist.length} help="Watched entities driving dashboard prioritization." />
-            <Stat label="Largest live focus" value={dashboard.highlightedPairs[0]?.symbol ?? 'EUR/USD'} help="Highest-ranked pair among favorites and watched items." />
-          </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Stat label="Portfolio equity" tone="up" value={formatCurrency(dashboard.portfolio?.portfolio.equity ?? 0)} help="Paper-account equity including open P/L." />
-          <Stat label="Open risk pulse" value={formatCurrency(exposure)} help="Quick proxy for open position attention load." />
-        </div>
-      </Panel>
+    <div className="grid gap-4">
+      <section className="border-l-4 border-[#70d8c8] bg-[#1c1b1b] px-4 py-3">
+        <h1 className="font-display text-2xl font-bold text-[#e5e2e1]">Good morning, {user.displayName}</h1>
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[#b1cad7]">
+          <span>{dashboard.summary}</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#70d8c8]">
+            {user.analysisFocus} focus
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#879390]">
+            {user.settings.defaultAccountCurrency} account
+          </span>
+        </p>
+      </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Panel>
-          <SectionTitle eyebrow="Currency strength" title="Major currency composite ranking" detail="Shared composite score used on dashboard, currency pages, pair narratives, and forecast context." />
-          <StrengthChart data={dashboard.strength.slice(0, 8)} />
-        </Panel>
-        <Panel>
-          <SectionTitle eyebrow="Priority events" title="High-impact event board" detail="Items affecting watched currencies and favorite pairs float to the top." />
-          <div className="space-y-3">
-            {dashboard.events.slice(0, 3).map((event) => (
-              <EventCard event={event} key={event.id} />
-            ))}
-          </div>
-        </Panel>
-      </div>
+      <div className="grid grid-cols-12 gap-1 bg-[#0e0e0e]">
+        <div className="col-span-12 flex flex-col gap-1 lg:col-span-8">
+          <section className="grid grid-cols-1 gap-1 md:grid-cols-3">
+            {dashboard.highlightedPairs.slice(0, 3).map((pair) => {
+              const values = pairSeries.get(pair.id) ?? []
+              const seriesPath = buildSparklinePath(values)
+              const last = values.at(-1) ?? 0
+              const prev = values.at(-2) ?? last
+              const delta = last - prev
+              const stroke = delta < 0 ? '#ffb4ab' : pair.eventRiskBase > 70 ? '#ffba38' : '#70d8c8'
+              const status = pair.eventRiskBase > 80 ? 'Elevated event risk' : delta < 0 ? 'Soft bias' : 'Stable'
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <SectionTitle eyebrow="Favorite pairs" title="Major and watched pairs" />
-          <div className="grid gap-4 md:grid-cols-2">
-            {dashboard.highlightedPairs.map((pair) => (
-              <PairCard
-                key={pair.id}
-                href={`/app/markets/${pair.id}`}
-                meta={<div className="flex justify-between text-[var(--muted)]"><span>Carry {pair.carryScore}</span><span>Event risk {pair.eventRiskBase}</span></div>}
-                pair={pair}
-                subtitle={pair.narrative}
-              />
-            ))}
-          </div>
-        </div>
-        <Panel>
-          <SectionTitle eyebrow="Recent simulations" title="Continue scenario work" />
-          <div className="space-y-3">
-            {dashboard.simulations.map((simulation) => (
-              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/70 p-4" key={simulation.id} to={`/app/simulation?simulation=${simulation.id}`}>
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{simulation.pairId.toUpperCase()}</div>
-                  <Badge tone={simulation.direction === 'long' ? 'accent' : 'danger'}>{simulation.direction}</Badge>
-                </div>
-                <div className="mt-2 text-sm text-[var(--muted)]">{simulation.scenarioType}</div>
-                <div className="mt-3 text-sm">Net {formatCurrency(simulation.outputs.netPnL)}</div>
-              </Link>
-            ))}
-            <ActionLink to="/app/simulation">Open simulation lab</ActionLink>
-          </div>
-        </Panel>
-      </div>
+              return (
+                <Link className="bg-[#1c1b1b] p-3 transition hover:bg-[#2a2a2a]" key={pair.id} to={`/app/markets/${pair.id}`}>
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <span className="font-display text-sm font-bold text-[#b1cad7]">{pair.symbol}</span>
+                    <span className={`px-1.5 py-0.5 font-mono text-[9px] uppercase ${pair.eventRiskBase > 80 ? 'bg-[#ffb4ab1a] text-[#ffb4ab]' : delta < 0 ? 'bg-[#ffba381a] text-[#ffba38]' : 'bg-[#70d8c81a] text-[#70d8c8]'}`}>
+                      {status}
+                    </span>
+                  </div>
+                  <div className="mb-2 flex items-baseline gap-2">
+                    <span className="font-display text-2xl font-bold text-[#e5e2e1]">
+                      {last.toFixed(pair.displayPrecision)}
+                    </span>
+                    <span className={`text-[10px] ${delta < 0 ? 'text-[#ffb4ab]' : 'text-[#70d8c8]'}`}>
+                      {delta >= 0 ? '+' : ''}
+                      {delta.toFixed(pair.displayPrecision)}
+                    </span>
+                  </div>
+                  <div className="relative mb-2 h-8 overflow-hidden bg-[#0e0e0e]">
+                    {seriesPath ? (
+                      <svg className="absolute inset-0 h-full w-full fill-none stroke-[1.2]" viewBox="0 0 100 20">
+                        <path d={seriesPath} stroke={stroke} />
+                      </svg>
+                    ) : null}
+                  </div>
+                  <div className="flex justify-between text-[9px] font-bold uppercase text-[#bcc9c5]">
+                    <span>Spread {pair.spreadEstimate}</span>
+                    <span>Carry {pair.carryScore}</span>
+                  </div>
+                </Link>
+              )
+            })}
+          </section>
 
-      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <Panel>
-          <SectionTitle eyebrow="Forecast strip" title="Illustrative outlooks" />
-          <div className="space-y-3">
-            {dashboard.forecasts.map((forecast) => (
-              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={forecast.id} to="/app/forecast">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{forecast.pairId.toUpperCase()}</div>
-                  <div className="text-sm text-[var(--muted)]">Confidence {Math.round(forecast.confidence)}%</div>
-                </div>
-                <div className="mt-2 text-xs leading-5 text-[var(--muted)]">{forecast.disclaimer}</div>
-              </Link>
-            ))}
-          </div>
-        </Panel>
-        <div>
-          <SectionTitle eyebrow="Narrative stream" title="News impact and saved notes" />
-          <div className="grid gap-4 lg:grid-cols-2">
+          <section className="bg-[#1c1b1b] p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-xs font-bold uppercase tracking-[0.18em] text-[#bcc9c5]">Currency Strength</h2>
+              <div className="flex gap-1">
+                <div className="size-2 bg-[#ffb4ab]" />
+                <div className="size-2 bg-[#ffb4ab66]" />
+                <div className="size-2 bg-[#3d4946]" />
+                <div className="size-2 bg-[#70d8c866]" />
+                <div className="size-2 bg-[#70d8c8]" />
+              </div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[0.62fr_0.38fr]">
+              <div className="min-w-0">
+                <StrengthChart data={dashboard.strength.slice(0, 8)} />
+              </div>
+              <div className="grid grid-cols-4 gap-1 text-center text-[10px] lg:grid-cols-2">
+                {currencyHeat.map((item) => {
+                  const normalized = (item.strengthScore - minStrength) / Math.max(maxStrength - minStrength, 1)
+                  const background =
+                    normalized > 0.7
+                      ? 'bg-[#70d8c833] text-[#70d8c8]'
+                      : normalized < 0.3
+                        ? 'bg-[#ffb4ab26] text-[#ffb4ab]'
+                        : 'bg-[#2a2a2a] text-[#b1cad7]'
+                  return (
+                    <div className={`flex min-h-16 flex-col justify-between p-3 ${background}`} key={item.code}>
+                      <span className="font-display text-xl font-bold">{item.code}</span>
+                      <span className="font-mono">{item.strengthScore.toFixed(0)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-[#1c1b1b] p-4">
+            <h2 className="mb-4 font-display text-xs font-bold uppercase tracking-[0.18em] text-[#bcc9c5]">Intelligence Stream</h2>
             <div className="space-y-4">
               {dashboard.news.slice(0, 3).map((item) => (
-                <NewsCard item={item} key={item.id} />
+                <div className="flex gap-4 border-l border-[#70d8c8] pl-4 py-1" key={item.id}>
+                  <div className="w-16 shrink-0 text-[10px] text-[#b1cad7]">
+                    {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-xs font-bold uppercase leading-tight text-[#e5e2e1]">{item.headline}</h3>
+                    <p className="text-[10px] leading-5 text-[#bcc9c5]">
+                      <span className="font-bold text-[#70d8c8]">Why it matters:</span> {item.whyItMatters}
+                    </p>
+                  </div>
+                </div>
               ))}
             </div>
-            <div className="space-y-4">
-              {dashboard.notes.map((note) => (
-                <NoteCard key={note.id} note={note} />
+          </section>
+        </div>
+
+        <div className="col-span-12 flex flex-col gap-1 lg:col-span-4">
+          <section className="bg-[#1c1b1b] p-4">
+            <h2 className="mb-4 font-display text-xs font-bold uppercase tracking-[0.18em] text-[#bcc9c5]">Portfolio Snapshot</h2>
+            <div className="mb-4 grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-[9px] font-bold uppercase text-[#bcc9c5]">Equity</span>
+                <div className="font-display text-lg font-bold text-[#70d8c8]">{formatCurrency(portfolio?.equity ?? 0)}</div>
+              </div>
+              <div>
+                <span className="text-[9px] font-bold uppercase text-[#bcc9c5]">Margin Used</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="font-display text-lg font-bold text-[#e5e2e1]">
+                    {portfolio?.equity ? (((portfolio.marginUsed ?? 0) / portfolio.equity) * 100).toFixed(1) : '0.0'}%
+                  </div>
+                  <div className="h-1 flex-1 bg-[#0e0e0e]">
+                    <div
+                      className="h-full bg-[#70d8c8]"
+                      style={{ width: `${portfolio?.equity ? Math.min(((portfolio.marginUsed ?? 0) / portfolio.equity) * 100, 100) : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(dashboard.portfolio?.openPositions ?? []).slice(0, 3).map((position) => (
+                <Link className="flex items-center justify-between bg-[#0e0e0e] p-2" key={position.id} to={`/app/markets/${position.pairId}`}>
+                  <div>
+                    <div className="text-xs font-bold uppercase text-[#e5e2e1]">{position.pairId.toUpperCase()}</div>
+                    <div className="text-[10px] uppercase text-[#bcc9c5]">{position.direction} · {position.leverage}x</div>
+                  </div>
+                  <div className={`font-mono text-[11px] ${position.unrealizedPnL >= 0 ? 'text-[#70d8c8]' : 'text-[#ffb4ab]'}`}>
+                    {formatCurrency(position.unrealizedPnL)}
+                  </div>
+                </Link>
               ))}
             </div>
-          </div>
+          </section>
+
+          <section className="bg-[#1c1b1b] p-4">
+            <h2 className="mb-4 font-display text-xs font-bold uppercase tracking-[0.18em] text-[#bcc9c5]">Upcoming Macro Events</h2>
+            <div className="space-y-2">
+              {dashboard.events.slice(0, 4).map((event) => (
+                <Link className={`flex items-center gap-4 bg-[#0e0e0e] p-3 border-l-2 ${event.impact === 'high' ? 'border-[#ffb4ab]' : 'border-[#ffba38]'}`} key={event.id} to={`/app/events/${event.id}`}>
+                  <div className="min-w-[72px] text-center">
+                    <div className="text-[10px] uppercase text-[#bcc9c5]">Urgency</div>
+                    <div className={`font-display text-lg font-bold ${event.impact === 'high' ? 'text-[#ffb4ab]' : 'text-[#ffba38]'}`}>{event.urgency}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold uppercase text-[#e5e2e1]">{event.title}</div>
+                    <div className="text-[10px] text-[#bcc9c5]">{event.region} · {event.forecast} forecast · {event.prior} prior</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-[#1c1b1b] p-4">
+            <h2 className="mb-4 font-display text-xs font-bold uppercase tracking-[0.18em] text-[#bcc9c5]">Continue Analysis</h2>
+            <div className="space-y-2">
+              {dashboard.simulations.map((simulation) => (
+                <Link className="block bg-[#0e0e0e] p-3" key={simulation.id} to={`/app/simulation?simulation=${simulation.id}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold uppercase text-[#e5e2e1]">{simulation.pairId.toUpperCase()}</div>
+                    <div className={`font-mono text-[10px] uppercase ${simulation.direction === 'long' ? 'text-[#70d8c8]' : 'text-[#ffb4ab]'}`}>{simulation.direction}</div>
+                  </div>
+                  <div className="mt-1 text-[10px] text-[#bcc9c5]">{simulation.scenarioType}</div>
+                </Link>
+              ))}
+              {dashboard.notes.slice(0, 2).map((note) => (
+                <Link className="block bg-[#0e0e0e] p-3" key={note.id} to="/app/notes">
+                  <div className="text-xs font-bold uppercase text-[#e5e2e1]">{note.title}</div>
+                  <div className="mt-1 text-[10px] leading-5 text-[#bcc9c5]">{note.body.slice(0, 120)}...</div>
+                </Link>
+              ))}
+              {data.notifications.slice(0, 2).map((item) => (
+                <Link className="block bg-[#0e0e0e] p-3" key={item.id} to={item.href ?? '/app/watchlist'}>
+                  <div className="text-xs font-bold uppercase text-[#e5e2e1]">{item.title}</div>
+                  <div className="mt-1 text-[10px] leading-5 text-[#bcc9c5]">{item.body}</div>
+                </Link>
+              ))}
+              {dashboard.watchlist.slice(0, 2).map((item) => (
+                <Link className="block bg-[#0e0e0e] p-3" key={item.id} to={appApi.getEntityHref(item.entityType, item.entityId)}>
+                  <div className="text-xs font-bold uppercase text-[#e5e2e1]">
+                    {buildEntityLabel(seed, item.entityType, item.entityId)}
+                  </div>
+                  <div className="mt-1 text-[10px] uppercase text-[#bcc9c5]">{item.entityType}</div>
+                </Link>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <Panel>
-          <SectionTitle eyebrow="Notifications" title="Triggered alerts and urgent context" />
-          <div className="space-y-3">
-            {data.notifications.map((item) => (
-              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={item.id} to={item.href ?? '/app/watchlist'}>
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{item.title}</div>
-                  <Badge tone={item.level === 'critical' ? 'danger' : item.level === 'warning' ? 'warning' : 'accent'}>{item.level}</Badge>
-                </div>
-                <div className="mt-2 text-sm text-[var(--muted)]">{item.body}</div>
-              </Link>
-            ))}
-          </div>
-        </Panel>
-        <Panel>
-          <SectionTitle eyebrow="Continue analysis" title="Recent entities and watch focus" />
-          <div className="space-y-3 text-sm">
-            {data.visited.pairs.map((pairId) => (
-              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={pairId} to={`/app/markets/${pairId}`}>
-                Last viewed pair · {buildEntityLabel(seed, 'pair', pairId)}
-              </Link>
-            ))}
-            {data.visited.currencies.map((currencyId) => (
-              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={currencyId} to={`/app/currencies/${currencyId}`}>
-                Last viewed currency · {buildEntityLabel(seed, 'currency', currencyId)}
-              </Link>
-            ))}
-            {dashboard.watchlist.slice(0, 3).map((item) => (
-              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={item.id} to={appApi.getEntityHref(item.entityType, item.entityId)}>
-                Watched · {buildEntityLabel(seed, item.entityType, item.entityId)}
-              </Link>
-            ))}
-          </div>
-        </Panel>
-      </div>
-    </Page>
+    </div>
   )
 }
