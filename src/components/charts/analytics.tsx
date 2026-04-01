@@ -24,8 +24,8 @@ export const PriceChart = ({ series, showForecast = false, forecast }: { series:
     lower: series.derivedIndicators.lowerBand[index],
   }))
   return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer>
+    <div className="h-72 min-w-0 w-full">
+      <ResponsiveContainer height="100%" minHeight={240} minWidth={240} width="100%">
         <LineChart data={data}>
           <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
           <XAxis dataKey="label" tick={{ fill: '#93a59a', fontSize: 10 }} />
@@ -49,8 +49,8 @@ export const PriceChart = ({ series, showForecast = false, forecast }: { series:
 }
 
 export const StrengthChart = ({ data }: { data: Array<{ code: string; strengthScore: number }> }) => (
-  <div className="h-72 w-full">
-    <ResponsiveContainer>
+  <div className="h-72 min-w-0 w-full">
+    <ResponsiveContainer height="100%" minHeight={240} minWidth={240} width="100%">
       <BarChart data={data}>
         <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
         <XAxis dataKey="code" tick={{ fill: '#93a59a' }} />
@@ -70,8 +70,8 @@ export const ForecastChart = ({ forecast }: { forecast: Forecast }) => {
     pessimistic: forecast.pessimisticPath[index]?.value,
   }))
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer>
+    <div className="h-64 min-w-0 w-full">
+      <ResponsiveContainer height="100%" minHeight={220} minWidth={240} width="100%">
         <AreaChart data={data}>
           <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis dataKey="horizon" tick={{ fill: '#93a59a' }} />

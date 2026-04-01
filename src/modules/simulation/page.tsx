@@ -29,6 +29,7 @@ export const SimulationLabPage = () => {
   }, [user?.id, pairId, simulationId, activeSimulation?.id])
 
   const [draft, setDraft] = useState<Simulation | null>(null)
+  const [sequence, setSequence] = useState([1, -1, -0.5, 1.8])
   const simulation = draft ?? data?.simulation ?? null
 
   const outputs = useMemo(() => {
@@ -64,8 +65,26 @@ export const SimulationLabPage = () => {
   if (loading || !simulation || !data || !outputs) return <LoadingPanel label="Loading simulation lab…" />
 
   const update = <K extends keyof Simulation>(key: K, value: Simulation[K]) => {
-    setDraft({ ...simulation, [key]: value, outputs })
+    const next = { ...simulation, [key]: value }
+    const nextOutputs = calculateTradeOutputs({
+      symbol: data.pair.symbol,
+      direction: next.direction,
+      capital: next.capital,
+      leverage: next.leverage,
+      entry: next.entry,
+      exit: next.exit,
+      stopLoss: next.stopLoss,
+      takeProfit: next.takeProfit,
+      positionSize: next.positionSize,
+      spread: next.spread,
+      fees: next.fees,
+    })
+    setDraft({ ...next, outputs: nextOutputs })
   }
+  const sequenceResult = sequence.reduce(
+    (capital, r) => capital + capital * 0.01 * r,
+    simulation.capital,
+  )
 
   return (
     <Page
@@ -124,6 +143,28 @@ export const SimulationLabPage = () => {
             <Stat label="Reward amount" value={formatCurrency(outputs.rewardAmount)} />
             <Stat label="R multiple" value={formatNumber(outputs.rMultiple)} />
           </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {data.pair.simulationPresets.map((preset) => (
+              <button
+                className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs"
+                key={preset.name}
+                onClick={() => {
+                  const next = appApi.buildSimulationFromPair(data.pair.id, preset.direction)
+                  setDraft({
+                    ...next,
+                    leverage: preset.leverage,
+                    entry: next.entry + preset.entryOffset * data.pair.pipPrecision,
+                    stopLoss: next.entry + preset.stopOffset * data.pair.pipPrecision,
+                    takeProfit: next.entry + preset.targetOffset * data.pair.pipPrecision,
+                    scenarioType: preset.name,
+                  })
+                }}
+                type="button"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
         </Panel>
         <Panel>
           <SectionTitle eyebrow="Forecast context" title="Illustrative path for the selected pair" />
@@ -159,17 +200,52 @@ export const SimulationLabPage = () => {
         </Panel>
       </div>
 
+      <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <Panel>
+          <SectionTitle eyebrow="Sequence simulator" title="Multi-trade compounding path" detail="Manual R-multiples show how streaks reshape capital." />
+          <div className="space-y-3">
+            <input
+              className="w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3"
+              value={sequence.join(', ')}
+              onChange={(event) =>
+                setSequence(
+                  event.target.value
+                    .split(',')
+                    .map((item) => Number(item.trim()))
+                    .filter((item) => Number.isFinite(item)),
+                )
+              }
+            />
+            <Stat label="Ending capital" value={formatCurrency(sequenceResult)} help="Assumes 1% risk per trade applied to the current capital base." />
+          </div>
+        </Panel>
+        <Panel>
+          <SectionTitle eyebrow="Portfolio handoff" title="Move this scenario into the paper account" />
+          <div className="space-y-3 text-sm text-[var(--muted)]">
+            <div className="rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4">Use the current active scenario to create a portfolio position with the same pair, direction, size, stop, target, and leverage assumptions.</div>
+            <PrimaryButton onClick={() => void appApi.openPaperTrade({ ...simulation, outputs }).then(() => setActiveSimulation({ ...simulation, outputs }))} type="button">
+              Open paper trade
+            </PrimaryButton>
+          </div>
+        </Panel>
+      </div>
+
       <Panel>
         <SectionTitle eyebrow="Saved scenarios" title="Reusable simulation history" />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {data.savedSimulations.map((saved) => (
-            <button className="rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/70 p-4 text-left" key={saved.id} onClick={() => setDraft(saved)} type="button">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{saved.pairId.toUpperCase()}</div>
-                <div className="text-xs text-[var(--muted)]">{saved.scenarioType}</div>
+            <div className="rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/70 p-4" key={saved.id}>
+              <button className="w-full text-left" onClick={() => setDraft(saved)} type="button">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{saved.pairId.toUpperCase()}</div>
+                  <div className="text-xs text-[var(--muted)]">{saved.scenarioType}</div>
+                </div>
+                <div className="mt-2 text-sm text-[var(--muted)]">Net {formatCurrency(saved.outputs.netPnL)}</div>
+              </button>
+              <div className="mt-3 flex gap-2">
+                <button className="rounded-full border border-[var(--line)] px-3 py-1 text-xs" onClick={() => void appApi.duplicateSimulation(saved.id).then(setDraft)} type="button">Duplicate</button>
               </div>
-              <div className="mt-2 text-sm text-[var(--muted)]">Net {formatCurrency(saved.outputs.netPnL)}</div>
-            </button>
+            </div>
           ))}
         </div>
       </Panel>

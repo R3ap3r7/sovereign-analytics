@@ -15,6 +15,7 @@ export type EventStatus = 'upcoming' | 'live' | 'released'
 export type UserRole = 'user' | 'admin'
 export type UserStatus = 'active' | 'locked' | 'unverified'
 export type EntityType = 'pair' | 'currency' | 'event' | 'forecast' | 'simulation' | 'strategy'
+export type WatchEntityType = 'pair' | 'currency' | 'event' | 'forecast'
 export type EventType =
   | 'CPI'
   | 'GDP'
@@ -263,6 +264,7 @@ export interface Settings {
   favoritePairs: string[]
   defaultAccountCurrency: string
   mock2FAEnabled: boolean
+  widgetOrder?: string[]
 }
 
 export interface User {
@@ -378,6 +380,7 @@ export interface PortfolioAccount {
   id: string
   userId: string
   baseCurrency: string
+  startingBalance?: number
   balance: number
   equity: number
   marginUsed: number
@@ -391,7 +394,7 @@ export interface PortfolioAccount {
 export interface WatchlistItem {
   id: string
   userId: string
-  entityType: 'pair' | 'currency' | 'event' | 'forecast'
+  entityType: WatchEntityType
   entityId: string
   createdAt: string
   priority: 'low' | 'medium' | 'high'
@@ -433,6 +436,26 @@ export interface AdminMarketMutation {
   pairVolatilityShifts: Record<string, number>
   newsToneShifts: Record<string, number>
   triggeredEventIds: string[]
+}
+
+export interface NotificationItem {
+  id: string
+  title: string
+  body: string
+  level: 'info' | 'warning' | 'critical'
+  href?: string
+  createdAt: string
+}
+
+export interface VisitRecord {
+  pairs: string[]
+  currencies: string[]
+  events: string[]
+}
+
+export interface OnboardingRecord {
+  completed: boolean
+  updates?: Partial<User>
 }
 
 export interface SeedData {

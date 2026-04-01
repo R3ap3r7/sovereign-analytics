@@ -4,7 +4,10 @@ import type {
   CurrencyProfile,
   MacroEvent,
   NewsItem,
+  NotificationItem,
+  Note,
   Pair,
+  PortfolioAccount,
   PortfolioPosition,
   PriceSeries,
   SeedData,
@@ -114,7 +117,8 @@ export const getUserPortfolioWorkspace = (seed: SeedData, user: User | null) => 
   const closedPositions = seed.positions.filter((item) => portfolio.closedPositionIds.includes(item.id))
   const orders = seed.orders.filter((item) => portfolio.orderIds.includes(item.id))
   const journals = seed.journals.filter((item) => portfolio.journalIds.includes(item.id))
-  return { portfolio, openPositions, closedPositions, orders, journals }
+  const enriched = recalculatePortfolio(portfolio, openPositions, closedPositions)
+  return { portfolio: enriched, openPositions, closedPositions, orders, journals }
 }
 
 export const getUserAlerts = (seed: SeedData, user: User | null): AlertRule[] =>
@@ -165,7 +169,45 @@ export const evaluateAlertStatus = (alert: AlertRule, seed: SeedData, mutation: 
     const shift = mutation.pairVolatilityShifts[alert.entityId] ?? 0
     if (shift > 10) return { ...alert, status: 'triggered', lastTriggeredAt: new Date().toISOString() }
   }
+  if (alert.conditionType === 'macro_risk_change') {
+    const currency = seed.currencies.find((item) => item.code === alert.entityId)
+    if (currency && (currency.riskScore + (mutation.currencyShifts[currency.code] ?? 0)) > 72) {
+      return { ...alert, status: 'triggered', lastTriggeredAt: new Date().toISOString() }
+    }
+  }
   return alert
+}
+
+export const buildNotifications = (seed: SeedData, user: User | null, mutation: AdminMarketMutation): NotificationItem[] => {
+  if (!user) return []
+  const alerts = getUserAlerts(seed, user).filter((alert) => alert.status === 'triggered')
+  const urgentEvents = seed.events.filter((event) => event.urgency > 90).slice(0, 2)
+  return [
+    ...alerts.map((alert) => ({
+      id: `notif-${alert.id}`,
+      title: 'Alert triggered',
+      body: `${alert.conditionType} fired on ${alert.entityId}.`,
+      level: 'warning' as const,
+      href: '/app/watchlist',
+      createdAt: alert.lastTriggeredAt ?? alert.createdAt,
+    })),
+    ...urgentEvents.map((event) => ({
+      id: `notif-${event.id}`,
+      title: event.title,
+      body: event.scenarioNarrative,
+      level: event.impact === 'high' ? 'critical' as const : 'info' as const,
+      href: `/app/events/${event.id}`,
+      createdAt: event.scheduledAt,
+    })),
+    ...Object.keys(mutation.currencyShifts).slice(0, 2).map((code) => ({
+      id: `notif-mutation-${code}`,
+      title: `${code} market state changed`,
+      body: 'Admin/demo overlays changed the current strength and risk environment.',
+      level: 'info' as const,
+      href: `/app/currencies/${code}`,
+      createdAt: new Date().toISOString(),
+    })),
+  ]
 }
 
 export const buildDashboardSnapshot = (seed: SeedData, user: User, mutation: AdminMarketMutation) => {
@@ -189,6 +231,7 @@ export const buildDashboardSnapshot = (seed: SeedData, user: User, mutation: Adm
 
   const highlightedPairs = seed.pairs.filter((pair) => pairPriority.has(pair.id)).slice(0, 5)
   const forecasts = seed.forecasts.filter((item) => highlightedPairs.some((pair) => pair.id === item.pairId)).slice(0, 4)
+  const notifications = buildNotifications(seed, user, mutation).slice(0, 4)
 
   const summary = `Macro risk elevated in ${events
     .slice(0, 2)
@@ -198,7 +241,7 @@ export const buildDashboardSnapshot = (seed: SeedData, user: User, mutation: Adm
     simulations[0]?.pairId?.toUpperCase() ?? highlightedPairs[0]?.symbol ?? 'EUR/USD'
   }.`
 
-  return { watchlist, simulations, notes, portfolio, strength, events, news, highlightedPairs, forecasts, summary }
+  return { watchlist, simulations, notes, portfolio, strength, events, news, highlightedPairs, forecasts, summary, notifications }
 }
 
 export const pairNarrative = (
@@ -214,4 +257,56 @@ export const pairNarrative = (
   const bearishNews = news.filter((item) => item.sentiment === 'bearish').length
   const strongerSide = base.strengthScore >= quote.strengthScore ? base.code : quote.code
   return `${pair.symbol}: ${strongerSide} remains relatively stronger, technical bias is ${technical.trend}, and ${eventPressure > 1 ? 'event risk is elevated' : 'calendar risk is manageable'} with ${bullishNews}/${bearishNews} supportive versus negative tagged stories.`
+}
+
+export const getContextualNotes = (
+  notes: Note[],
+  identifiers: string[],
+  user: User | null,
+) =>
+  notes.filter(
+    (note) =>
+      (!user || note.userId === user.id) &&
+      note.linkedEntities.some((entity) => identifiers.includes(entity.entityId)),
+  )
+
+export const recalculatePortfolio = (
+  portfolio: PortfolioAccount,
+  openPositions: PortfolioPosition[],
+  closedPositions: PortfolioPosition[],
+) => {
+  const realized = closedPositions.reduce((acc, item) => acc + (item.realizedPnL ?? 0), 0)
+  const unrealized = openPositions.reduce((acc, item) => acc + item.unrealizedPnL, 0)
+  const marginUsed = openPositions.reduce(
+    (acc, item) => acc + (item.entry * item.size) / Math.max(item.leverage, 1),
+    0,
+  )
+  const balance = (portfolio.startingBalance ?? portfolio.balance) + realized
+  const equity = balance + unrealized
+  return {
+    ...portfolio,
+    balance,
+    equity,
+    marginUsed,
+    freeMargin: equity - marginUsed,
+  }
+}
+
+export const addRecentVisit = (items: string[], value: string) => {
+  const next = [value, ...items.filter((item) => item !== value)]
+  return next.slice(0, 5)
+}
+
+export const buildEntityLabel = (
+  seed: SeedData,
+  entityType: 'pair' | 'currency' | 'event' | 'forecast',
+  entityId: string,
+) => {
+  if (entityType === 'pair') return seed.pairs.find((item) => item.id === entityId)?.symbol ?? entityId
+  if (entityType === 'currency') {
+    const currency = seed.currencies.find((item) => item.code === entityId)
+    return currency ? `${currency.code} · ${currency.name}` : entityId
+  }
+  if (entityType === 'event') return seed.events.find((item) => item.id === entityId)?.title ?? entityId
+  return entityId
 }

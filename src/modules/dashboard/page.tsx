@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom'
 import { StrengthChart } from '../../components/charts/analytics'
 import { EventCard, NewsCard, NoteCard, PairCard } from '../../components/domain/cards'
 import { ActionLink, Badge, LoadingPanel, Page, Panel, SectionTitle, Stat } from '../../components/ui/primitives'
-import { appApi } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/mockApi'
+import { buildEntityLabel } from '../../domain/selectors'
 import { formatCurrency } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
 import { useAppState } from '../../app/AppState'
@@ -10,6 +11,7 @@ import { useAppState } from '../../app/AppState'
 export const DashboardPage = () => {
   const { user } = useAppState()
   const { data, loading } = useAsyncResource(() => appApi.getCurrentUserWorkspace(), [user?.id])
+  const seed = getSeed()
   if (loading || !data?.dashboard) return <LoadingPanel label="Loading dashboard workspace…" />
   const { dashboard } = data
   const exposure = dashboard.portfolio
@@ -115,6 +117,43 @@ export const DashboardPage = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <Panel>
+          <SectionTitle eyebrow="Notifications" title="Triggered alerts and urgent context" />
+          <div className="space-y-3">
+            {data.notifications.map((item) => (
+              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={item.id} to={item.href ?? '/app/watchlist'}>
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{item.title}</div>
+                  <Badge tone={item.level === 'critical' ? 'danger' : item.level === 'warning' ? 'warning' : 'accent'}>{item.level}</Badge>
+                </div>
+                <div className="mt-2 text-sm text-[var(--muted)]">{item.body}</div>
+              </Link>
+            ))}
+          </div>
+        </Panel>
+        <Panel>
+          <SectionTitle eyebrow="Continue analysis" title="Recent entities and watch focus" />
+          <div className="space-y-3 text-sm">
+            {data.visited.pairs.map((pairId) => (
+              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={pairId} to={`/app/markets/${pairId}`}>
+                Last viewed pair · {buildEntityLabel(seed, 'pair', pairId)}
+              </Link>
+            ))}
+            {data.visited.currencies.map((currencyId) => (
+              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={currencyId} to={`/app/currencies/${currencyId}`}>
+                Last viewed currency · {buildEntityLabel(seed, 'currency', currencyId)}
+              </Link>
+            ))}
+            {dashboard.watchlist.slice(0, 3).map((item) => (
+              <Link className="block rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)]/60 p-4" key={item.id} to={appApi.getEntityHref(item.entityType, item.entityId)}>
+                Watched · {buildEntityLabel(seed, item.entityType, item.entityId)}
+              </Link>
+            ))}
+          </div>
+        </Panel>
       </div>
     </Page>
   )

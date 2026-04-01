@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { LoadingPanel, Page, Panel, SectionTitle } from '../../components/ui/primitives'
-import { getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/mockApi'
 import { useAppState } from '../../app/AppState'
 import { useAsyncResource } from '../../lib/useAsyncResource'
 import { PrimaryButton } from '../shared'
@@ -9,6 +9,7 @@ export const AdminPage = () => {
   const { user, adminMutation, setAdminMutation } = useAppState()
   const { data, loading } = useAsyncResource(async () => getSeed(), [user?.id, adminMutation])
   const [currency, setCurrency] = useState('JPY')
+  const [eventId, setEventId] = useState('evt-us-cpi')
   if (loading || !data) return <LoadingPanel label="Loading admin inspector…" />
   if (user?.role !== 'admin') return <Page title="Admin" description="Admin access required."><Panel>Current persona does not have access to the demo inspector.</Panel></Page>
   return (
@@ -48,6 +49,33 @@ export const AdminPage = () => {
               type="button"
             >
               Shift currency weaker
+            </PrimaryButton>
+            <select className="w-full rounded-2xl border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" value={eventId} onChange={(event) => setEventId(event.target.value)}>
+              {data.events.map((item) => (
+                <option key={item.id} value={item.id}>{item.title}</option>
+              ))}
+            </select>
+            <PrimaryButton
+              onClick={() =>
+                void setAdminMutation({
+                  ...adminMutation,
+                  triggeredEventIds: Array.from(new Set([...adminMutation.triggeredEventIds, eventId])),
+                })
+              }
+              secondary
+              type="button"
+            >
+              Trigger event outcome
+            </PrimaryButton>
+            <PrimaryButton
+              onClick={async () => {
+                await appApi.resetAdminMutation()
+                await setAdminMutation({ currencyShifts: {}, pairVolatilityShifts: {}, newsToneShifts: {}, triggeredEventIds: [] })
+              }}
+              secondary
+              type="button"
+            >
+              Reset overlays
             </PrimaryButton>
           </div>
         </Panel>

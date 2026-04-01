@@ -1,4 +1,10 @@
-import type { AdminMarketMutation, Session, Settings } from '../types'
+import type {
+  AdminMarketMutation,
+  OnboardingRecord,
+  Session,
+  Settings,
+  VisitRecord,
+} from '../types'
 
 const KEY_PREFIX = 'sovereign-analytics'
 
@@ -59,4 +65,19 @@ export const mutationStorageApi = {
       triggeredEventIds: [],
     }),
   writeAdminMutation: (value: AdminMarketMutation) => storage.set('admin-mutation', value),
+}
+
+export const onboardingStorageApi = {
+  read: () => storage.get<Record<string, OnboardingRecord | boolean>>('onboarding', {}),
+  write: (value: Record<string, OnboardingRecord | boolean>) => storage.set('onboarding', value),
+}
+
+export const visitedStorageApi = {
+  read: () =>
+    storage.get<VisitRecord>('visited', {
+      pairs: [],
+      currencies: [],
+      events: [],
+    }),
+  write: (value: VisitRecord) => storage.set('visited', value),
 }

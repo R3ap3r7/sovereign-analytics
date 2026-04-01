@@ -83,8 +83,8 @@ export const LoginPage = () => {
     <div className="flex min-h-screen items-center justify-center px-6 py-10">
       <AuthCard title="Login to the demo terminal" subtitle="Use any seeded persona to explore a different market perspective.">
         <form className="space-y-4" onSubmit={submit}>
-          <AuthInput placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          <AuthInput placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          <AuthInput autoComplete="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <AuthInput autoComplete="current-password" placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
           {error ? <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
           <PrimaryButton className="w-full" type="submit">
             Continue
@@ -131,9 +131,9 @@ export const SignupPage = () => {
             }
           }}
         >
-          <AuthInput placeholder="Display name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-          <AuthInput placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          <AuthInput placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          <AuthInput autoComplete="name" placeholder="Display name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          <AuthInput autoComplete="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <AuthInput autoComplete="new-password" placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
           {error ? <div className="text-sm text-rose-200">{error}</div> : null}
           <PrimaryButton className="w-full" type="submit">
             Create account
@@ -156,7 +156,7 @@ export const ForgotPasswordPage = () => {
             navigate('/reset-success')
           }}
         >
-          <AuthInput placeholder="Email" />
+          <AuthInput autoComplete="email" placeholder="Email" />
           <PrimaryButton className="w-full" type="submit">
             Send reset link
           </PrimaryButton>

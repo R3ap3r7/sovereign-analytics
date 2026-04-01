@@ -2,9 +2,17 @@ import type { PositionDirection, SimulationOutputs } from '../types'
 
 export const getPipSize = (symbol: string) => (symbol.includes('JPY') ? 0.01 : 0.0001)
 
-export const getPipValue = (symbol: string, sizeUnits: number) => {
+const parseSymbol = (symbol: string) => {
+  const [base = '', quote = ''] = symbol.split('/')
+  return { base, quote }
+}
+
+export const getPipValue = (symbol: string, sizeUnits: number, referencePrice?: number) => {
   const pipSize = getPipSize(symbol)
-  return sizeUnits * pipSize
+  const { base, quote } = parseSymbol(symbol)
+  if (quote === 'USD') return sizeUnits * pipSize
+  if (base === 'USD') return (sizeUnits * pipSize) / Math.max(referencePrice ?? 1, 0.0001)
+  return (sizeUnits * pipSize * 0.85) / Math.max(referencePrice ?? 1, 0.0001)
 }
 
 export const calculateTradeOutputs = (params: {
@@ -36,7 +44,8 @@ export const calculateTradeOutputs = (params: {
   const pipSize = getPipSize(symbol)
   const signedMove = direction === 'long' ? exit - entry : entry - exit
   const pipMove = signedMove / pipSize
-  const pipValue = getPipValue(symbol, positionSize)
+  const { base, quote } = parseSymbol(symbol)
+  const pipValue = getPipValue(symbol, positionSize, entry)
   const grossPnL = pipMove * pipValue
   const spreadCost = spread * pipValue
   const netPnL = grossPnL - spreadCost - fees
@@ -46,7 +55,8 @@ export const calculateTradeOutputs = (params: {
   const rewardAmount = rewardPips * pipValue
   const rrRatio = riskAmount === 0 ? 0 : rewardAmount / riskAmount
   const rMultiple = riskAmount === 0 ? 0 : netPnL / riskAmount
-  const notionalExposure = entry * positionSize
+  const notionalExposure =
+    quote === 'USD' ? entry * positionSize : base === 'USD' ? positionSize : entry * positionSize * 0.72
   const marginUsed = leverage === 0 ? 0 : notionalExposure / leverage
   const freeMargin = capital - marginUsed
   const balanceAfterTrade = capital + netPnL

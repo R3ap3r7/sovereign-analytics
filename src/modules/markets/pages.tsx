@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ForecastChart, PriceChart } from '../../components/charts/analytics'
 import { NewsCard, NoteCard, PairCard } from '../../components/domain/cards'
 import { ActionLink, Badge, LoadingPanel, Page, Panel, SectionTitle, Stat } from '../../components/ui/primitives'
-import { appApi } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/mockApi'
 import { pairNarrative } from '../../domain/selectors'
 import { formatNumber, formatPercent } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
@@ -14,6 +14,7 @@ export const MarketsPage = () => {
   const navigate = useNavigate()
   const [baseFilter, setBaseFilter] = useState('all')
   const [riskFilter, setRiskFilter] = useState('all')
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'heatmap'>('cards')
   const { data, loading } = useAsyncResource(() => appApi.listPairs(), [])
   if (loading || !data) return <LoadingPanel label="Loading market explorer…" />
   const pairs = data.filter((pair) => (baseFilter === 'all' ? true : pair.baseCode === baseFilter)).filter((pair) => (riskFilter === 'all' ? true : riskFilter === 'high' ? pair.eventRiskBase >= 70 : pair.eventRiskBase < 70))
@@ -31,33 +32,96 @@ export const MarketsPage = () => {
           <option value="high">High event risk</option>
           <option value="lower">Lower event risk</option>
         </select>
+        <select className="rounded-full border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-2 text-sm" onChange={(event) => setViewMode(event.target.value as typeof viewMode)} value={viewMode}>
+          <option value="cards">Cards</option>
+          <option value="table">Table</option>
+          <option value="heatmap">Heatmap</option>
+        </select>
         <ActionLink to="/app/markets/compare">Open compare board</ActionLink>
       </Panel>
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {pairs.map((pair) => (
-          <PairCard
-            key={pair.id}
-            href={`/app/markets/${pair.id}`}
-            meta={
-              <div className="flex items-center justify-between">
-                <span>{pair.baseCode}/{pair.quoteCode}</span>
-                <button
-                  className="rounded-full border border-[var(--line)] px-3 py-1 text-xs"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    navigate(`/app/simulation?pair=${pair.id}`)
-                  }}
-                  type="button"
-                >
-                  Simulate
-                </button>
-              </div>
-            }
-            pair={pair}
-            subtitle={pair.narrative}
-          />
-        ))}
-      </div>
+      {viewMode === 'cards' ? (
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {pairs.map((pair) => (
+            <PairCard
+              key={pair.id}
+              href={`/app/markets/${pair.id}`}
+              meta={
+                <div className="flex items-center justify-between">
+                  <span>{pair.baseCode}/{pair.quoteCode}</span>
+                  <div className="flex gap-2">
+                    <button
+                      className="rounded-full border border-[var(--line)] px-3 py-1 text-xs"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        void appApi.toggleWatchlist('pair', pair.id)
+                      }}
+                      type="button"
+                    >
+                      Watch
+                    </button>
+                    <button
+                      className="rounded-full border border-[var(--line)] px-3 py-1 text-xs"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        navigate(`/app/simulation?pair=${pair.id}`)
+                      }}
+                      type="button"
+                    >
+                      Simulate
+                    </button>
+                  </div>
+                </div>
+              }
+              pair={pair}
+              subtitle={pair.narrative}
+            />
+          ))}
+        </div>
+      ) : viewMode === 'table' ? (
+        <Panel>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-[var(--muted)]">
+                <tr>
+                  <th className="pb-3">Pair</th>
+                  <th className="pb-3">Carry</th>
+                  <th className="pb-3">Sentiment</th>
+                  <th className="pb-3">Event risk</th>
+                  <th className="pb-3">Spread</th>
+                  <th className="pb-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pairs.map((pair) => (
+                  <tr className="border-t border-[var(--line)]" key={pair.id}>
+                    <td className="py-3 font-medium"><Link to={`/app/markets/${pair.id}`}>{pair.symbol}</Link></td>
+                    <td>{pair.carryScore}</td>
+                    <td>{pair.sentimentScore}</td>
+                    <td>{pair.eventRiskBase}</td>
+                    <td>{pair.spreadEstimate}</td>
+                    <td className="py-3">
+                      <div className="flex gap-2">
+                        <button className="rounded-full border border-[var(--line)] px-3 py-1 text-xs" onClick={() => void appApi.toggleWatchlist('pair', pair.id)} type="button">Watch</button>
+                        <button className="rounded-full border border-[var(--line)] px-3 py-1 text-xs" onClick={() => navigate(`/app/simulation?pair=${pair.id}`)} type="button">Simulate</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {pairs.map((pair) => (
+            <div className="rounded-3xl border border-[var(--line)] p-5" key={pair.id}>
+              <div className="text-sm text-[var(--muted)]">{pair.symbol}</div>
+              <div className="mt-3 text-3xl font-semibold">{pair.eventRiskBase}</div>
+              <div className="mt-2 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Event risk heat</div>
+            </div>
+          ))}
+        </div>
+      )}
     </Page>
   )
 }
@@ -106,7 +170,16 @@ export const PairDetailPage = () => {
   const params = useParams()
   const { setActiveSimulation, user } = useAppState()
   const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '6M' | '1Y'>('3M')
+  const [watched, setWatched] = useState(false)
   const { data, loading } = useAsyncResource(() => appApi.getPairWorkspace(params.pairId ?? ''), [params.pairId, user?.id])
+  useEffect(() => {
+    if (params.pairId) appApi.saveVisited('pairs', params.pairId)
+  }, [params.pairId])
+  useEffect(() => {
+    if (!params.pairId || !user) return
+    const seed = getSeed()
+    setWatched(seed.watchlist.some((item) => item.userId === user.id && item.entityType === 'pair' && item.entityId === params.pairId))
+  }, [params.pairId, user?.id, data?.pair.id])
   if (loading || !data) return <LoadingPanel label="Loading pair workspace…" />
   const selectedSeries = data.series.find((item) => item.timeframe === timeframe) ?? data.series[0]
   const narrative = pairNarrative(data.pair, data.technical, data.base, data.quote, data.eventList, data.newsList)
@@ -118,6 +191,16 @@ export const PairDetailPage = () => {
       actions={
         <>
           <Badge tone={data.eventRisk > 75 ? 'danger' : 'warning'}>Event risk {data.eventRisk}</Badge>
+          <PrimaryButton
+            onClick={async () => {
+              await appApi.toggleWatchlist('pair', data.pair.id)
+              setWatched((value) => !value)
+            }}
+            secondary
+            type="button"
+          >
+            {watched ? 'Unwatch pair' : 'Watch pair'}
+          </PrimaryButton>
           <PrimaryButton
             onClick={() => setActiveSimulation(appApi.buildSimulationFromPair(data.pair.id))}
             type="button"
