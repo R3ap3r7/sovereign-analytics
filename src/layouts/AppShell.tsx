@@ -1,7 +1,7 @@
 import { Bell, BriefcaseBusiness, CandlestickChart, Globe2, LayoutDashboard, LineChart, NotebookPen, Search, Settings, ShieldAlert, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { appApi } from '../domain/services/mockApi'
+import { appApi } from '../domain/services/api'
 import { useAppState } from '../app/AppState'
 import { cn } from '../lib/utils'
 import type { NotificationItem } from '../domain/types'

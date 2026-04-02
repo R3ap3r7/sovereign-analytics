@@ -104,7 +104,11 @@ export const getEventWorkspace = (seed: SeedData, id: string) => {
     event,
     currencies: seed.currencies.filter((item) => event.currencyCodes.includes(item.code)),
     pairs: seed.pairs.filter((item) => event.pairIds.includes(item.id)),
-    relatedNews: seed.news.filter((item) => item.eventIds.includes(event.id)),
+    relatedNews: seed.news.filter(
+      (item) =>
+        item.eventIds.includes(event.id)
+        || item.currencyCodes.some((code) => event.currencyCodes.includes(code)),
+    ),
     comparableEvents: seed.events.filter((item) => item.type === event.type && item.id !== event.id).slice(0, 3),
   }
 }
@@ -210,7 +214,7 @@ export const buildNotifications = (seed: SeedData, user: User | null, mutation: 
     ...urgentEvents.map((event) => ({
       id: `notif-${event.id}`,
       title: event.title,
-      body: event.scenarioNarrative,
+      body: event.summary ?? event.scenarioNarrative ?? 'New official release added to the macro tape.',
       level: event.impact === 'high' ? 'critical' as const : 'info' as const,
       href: `/app/events/${event.id}`,
       createdAt: event.scheduledAt,

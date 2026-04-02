@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Badge, LoadingPanel } from '../../components/ui/primitives'
-import { appApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/api'
 import { formatNumber, formatPercent, title } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
 import { useAppState } from '../../app/AppState'
@@ -388,7 +388,7 @@ export const CurrencyDetailPage = () => {
                     </div>
                     <Badge tone={item.sentiment === 'bullish' ? 'accent' : item.sentiment === 'bearish' ? 'danger' : 'default'}>{item.sentiment}</Badge>
                   </div>
-                  <div className="mt-2 text-xs leading-6 text-[var(--muted)]">{item.whyItMatters}</div>
+                  <div className="mt-2 text-xs leading-6 text-[var(--muted)]">{item.whyItMatters ?? item.explanation ?? item.summary ?? 'Live currency headline without attached analyst evaluation.'}</div>
                 </div>
               ))}
             </div>
@@ -406,7 +406,7 @@ export const CurrencyDetailPage = () => {
                     </div>
                     <Badge tone={event.impact === 'high' ? 'danger' : event.impact === 'medium' ? 'warning' : 'default'}>{event.impact}</Badge>
                   </div>
-                  <div className="mt-2 text-xs text-[var(--muted)]">{event.scenarioNarrative}</div>
+                  <div className="mt-2 text-xs text-[var(--muted)]">{event.summary ?? event.scenarioNarrative ?? 'Official release captured in the current currency tape.'}</div>
                 </Link>
               ))}
             </div>

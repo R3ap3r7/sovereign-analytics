@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ForecastChart, PriceChart } from '../../components/charts/analytics'
 import { NewsCard, NoteCard } from '../../components/domain/cards'
 import { ActionLink, Badge, LoadingPanel, Page, Panel, SectionTitle, Stat } from '../../components/ui/primitives'
-import { appApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/api'
 import { pairNarrative } from '../../domain/selectors'
 import type { Pair, PriceSeries, TechnicalSnapshot } from '../../domain/types'
 import { cn, formatDateTime, formatNumber, formatPercent, title } from '../../lib/utils'
@@ -637,7 +637,7 @@ export const PairDetailPage = () => {
                 <Stat label="RSI" value={formatNumber(data.technical.rsi, 0)} help={data.technical.rsi > 65 ? 'Momentum is elevated and can stretch further before it mean-reverts.' : 'Momentum remains active without a full stretch signal.'} />
                 <Stat label="MACD" value={formatNumber(data.technical.macd)} help="Directional impulse versus signal line." />
                 <Stat label="ATR" value={formatNumber(data.technical.atr)} help="Feeds volatility labels and scenario widths." />
-                <Stat label="Trend channel" value={`${formatNumber(data.technical.channel.low)} - ${formatNumber(data.technical.channel.high)}`} help="Pair is trading inside this seeded structure band." />
+                <Stat label="Trend channel" value={`${formatNumber(data.technical.channel.low)} - ${formatNumber(data.technical.channel.high)}`} help="Pair is trading inside this current structure band." />
               </div>
             </div>
           </Panel>
@@ -649,7 +649,7 @@ export const PairDetailPage = () => {
                 <Stat label={`${data.base.code} strength`} tone={trendTone(data.technical.trend)} value={formatNumber(data.base.strengthScore, 0)} help={data.base.currentSummary} />
                 <Stat label={`${data.quote.code} strength`} value={formatNumber(data.quote.strengthScore, 0)} help={data.quote.currentSummary} />
                 <Stat label="Policy rate spread" value={formatPercent(data.base.macro.policyRate - data.quote.macro.policyRate, 2)} help={`${data.base.code} minus ${data.quote.code}.`} />
-                <Stat label="Inflation spread" value={formatPercent(data.base.macro.inflation - data.quote.macro.inflation, 2)} help="A simple mock inflation differential." />
+                <Stat label="Inflation spread" value={formatPercent(data.base.macro.inflation - data.quote.macro.inflation, 2)} help="Current inflation differential between the two economies." />
               </div>
               <div className="mt-4 grid gap-3">
                 <DriverBar label={`${data.base.code} event sensitivity`} value={data.base.eventSensitivity} />
@@ -699,7 +699,7 @@ export const PairDetailPage = () => {
                         <div className="mt-2 text-sm">{event.actual ?? 'Pending'}</div>
                       </div>
                     </div>
-                    <p className="mt-4 text-sm leading-6 text-[var(--muted)]">{event.scenarioNarrative}</p>
+                    <p className="mt-4 text-sm leading-6 text-[var(--muted)]">{event.summary ?? event.scenarioNarrative ?? 'Latest official release linked to this pair.'}</p>
                   </Link>
                 ))}
               </div>

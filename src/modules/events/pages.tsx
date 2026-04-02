@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge, LoadingPanel, Page, Panel, Stat } from '../../components/ui/primitives'
-import { appApi } from '../../domain/services/mockApi'
+import { appApi } from '../../domain/services/api'
 import { formatDateTime, formatNumber } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
 import { useAppState } from '../../app/AppState'
@@ -73,7 +73,7 @@ export const EventsPage = () => {
         ? []
         : data.news
           .filter((item) => (currency === 'all' ? true : item.currencyCodes.includes(currency)))
-          .filter((item) => (searchQuery ? `${item.headline} ${item.explanation} ${item.whyItMatters} ${item.currencyCodes.join(' ')} ${item.pairIds.join(' ')}`.toLowerCase().includes(searchQuery.toLowerCase()) : true)),
+          .filter((item) => (searchQuery ? `${item.headline} ${item.explanation ?? ''} ${item.whyItMatters ?? ''} ${item.summary ?? ''} ${item.currencyCodes.join(' ')} ${item.pairIds.join(' ')}`.toLowerCase().includes(searchQuery.toLowerCase()) : true)),
     [data, currency, searchQuery],
   )
 
@@ -143,7 +143,7 @@ export const EventsPage = () => {
                   {selectedEvent?.title ?? 'Macro terminal'}
                 </h2>
                 <p className="max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                  {selectedEvent?.scenarioNarrative ?? 'No event selected.'}
+                  {selectedEvent?.summary ?? selectedEvent?.scenarioNarrative ?? 'No event selected.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedEvent?.currencyCodes.map((code) => (
@@ -204,8 +204,8 @@ export const EventsPage = () => {
                       <span className="text-xs font-bold text-[var(--text)]">{item.headline}</span>
                       <span className="px-1.5 py-0.5 bg-[color:var(--panel-3)] text-[var(--muted)] text-[9px] font-bold uppercase">{item.source}</span>
                     </div>
-                    <p className="text-[11px] text-[var(--muted)] leading-relaxed">{item.explanation}</p>
-                    <p className="text-[11px] text-[var(--text)] leading-relaxed">{item.whyItMatters}</p>
+                    <p className="text-[11px] text-[var(--muted)] leading-relaxed">{item.explanation ?? item.summary ?? 'Raw headline captured from the live feed.'}</p>
+                    {item.whyItMatters ? <p className="text-[11px] text-[var(--text)] leading-relaxed">{item.whyItMatters}</p> : null}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={item.sentiment === 'bullish' ? 'text-[10px] font-bold text-[var(--accent)] uppercase' : item.sentiment === 'bearish' ? 'text-[10px] font-bold text-[var(--danger)] uppercase' : 'text-[10px] font-bold text-[var(--muted)] uppercase'}>
@@ -293,7 +293,7 @@ export const EventsPage = () => {
 
         <div className="space-y-4">
           <section className="bg-[color:var(--panel)] p-4">
-            <CompactSection label="Inspector" title={selectedEvent ? selectedEvent.title : 'Event'} detail={selectedEvent ? selectedEvent.scenarioNarrative : undefined} />
+            <CompactSection label="Inspector" title={selectedEvent ? selectedEvent.title : 'Event'} detail={selectedEvent ? selectedEvent.summary ?? selectedEvent.scenarioNarrative : undefined} />
             {selectedEvent ? (
               <>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -449,7 +449,7 @@ export const EventDetailPage = () => {
               <div className="space-y-px bg-[var(--line)]">
                 <div className="bg-[color:var(--panel)] px-5 py-4">
                   <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Event line</div>
-                  <div className="mt-2 text-sm leading-6 text-[var(--text)]">{data.event.scenarioNarrative}</div>
+                  <div className="mt-2 text-sm leading-6 text-[var(--text)]">{data.event.summary ?? data.event.scenarioNarrative ?? 'Official release captured in the live macro feed.'}</div>
                 </div>
                 <div className="bg-[color:var(--panel)] px-5 py-4">
                   <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Impact set</div>

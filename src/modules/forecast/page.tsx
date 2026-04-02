@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ForecastChart } from '../../components/charts/analytics'
 import { LoadingPanel } from '../../components/ui/primitives'
-import { appApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/api'
 import { formatNumber, formatPercent } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
 
@@ -64,6 +64,10 @@ export const ForecastPage = () => {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 p-6">
+      <section className="border-l-2 border-[var(--warning)] bg-[rgba(224,180,108,0.08)] px-4 py-3 text-sm text-[var(--text)]">
+        Forecast model not connected yet. The studio currently shows volatility envelopes derived from recent spot behavior, so treat them as layout placeholders rather than predictive signals.
+      </section>
+
       <header className="flex flex-col gap-5 border-b border-[color:rgba(141,164,179,0.14)] pb-6 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex flex-wrap items-end gap-8">
           <div>

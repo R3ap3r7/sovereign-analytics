@@ -1,112 +1,262 @@
-import { ArrowRight, Terminal } from 'lucide-react'
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  CandlestickChart,
+  CheckCircle2,
+  KeyRound,
+  LockKeyhole,
+  Mail,
+  Radar,
+  Shield,
+  Terminal,
+  UserRound,
+} from 'lucide-react'
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAppState } from '../../app/AppState'
-import { authApi, getSeed } from '../../domain/services/mockApi'
-import { ButtonLink, PrimaryButton } from '../shared'
+import { authApi, getSeed, appApi } from '../../domain/services/api'
+import { cn } from '../../lib/utils'
 
-const AuthInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+const AuthInput = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
-    className="w-full rounded-[2px] border border-[rgba(176,202,215,0.16)] bg-[rgba(8,12,16,0.9)] px-4 py-3 text-sm text-[var(--text)] outline-none placeholder:text-[var(--muted)] focus:border-[rgba(139,196,168,0.65)] focus:ring-2 focus:ring-[rgba(139,196,168,0.12)]"
+    className={cn(
+      'w-full border-0 border-b border-[rgba(118,117,120,0.55)] bg-transparent px-0 py-3 text-sm text-[#f2efeb] outline-none placeholder:text-[#707782] focus:border-[#d8b574] focus:ring-0',
+      className,
+    )}
   />
 )
 
-const DemoRow = ({ label, value, href }: { label: string; value: string; href?: string }) => (
-  <div className="flex items-center justify-between gap-3 rounded-[2px] border border-[rgba(176,202,215,0.12)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
-    <div>
-      <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
-      <div className="mt-1 text-sm text-[var(--text)]">{value}</div>
-    </div>
-    {href ? <Link className="text-xs uppercase tracking-[0.16em] text-[var(--accent)]" to={href}>Open</Link> : null}
-  </div>
-)
-
-const AuthWorkspace = ({
-  eyebrow,
-  title,
-  description,
-  form,
-  sideTitle,
-  sideChildren,
+const AuthField = ({
+  label,
+  action,
+  children,
 }: {
-  eyebrow: string
-  title: string
-  description: string
-  form: React.ReactNode
-  sideTitle: string
-  sideChildren: React.ReactNode
+  label: string
+  action?: React.ReactNode
+  children: React.ReactNode
 }) => (
-  <div className="min-h-screen overflow-x-hidden bg-[#131313]">
-    <header className="sticky top-0 z-50 flex w-full items-center justify-between border-b border-[rgba(61,73,70,0.2)] bg-[#131313] px-4 py-4 lg:px-6">
-      <Link className="flex items-center gap-2" to="/">
-        <Terminal className="size-5 text-[#70d8c8]" />
-        <span className="font-display text-lg font-bold tracking-[-0.04em] text-[#70d8c8] lg:text-xl">SOVEREIGN ANALYTICS</span>
-      </Link>
-      <Link className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#b1cad7] transition hover:text-[#70d8c8]" to="/">
-        Back to overview
-      </Link>
-    </header>
+  <label className="block space-y-2">
+    <span className="flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.26em] text-[#8f98a3]">
+      <span>{label}</span>
+      {action}
+    </span>
+    {children}
+  </label>
+)
 
-    <main className="grid min-h-[calc(100vh-69px)] lg:grid-cols-[0.92fr_1.08fr]">
-      <section className="border-b border-[rgba(61,73,70,0.12)] bg-[#131313] p-6 lg:border-b-0 lg:border-r lg:p-10">
-        <div className="max-w-xl space-y-6">
-          <div className="space-y-4">
-            <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#bcc9c5]">{eyebrow}</div>
-            <h1 className="font-display text-5xl font-bold uppercase leading-[0.92] tracking-[-0.08em] text-[#e5e2e1] lg:text-[5.4rem]">
-              {title}
-            </h1>
-            <p className="max-w-lg text-sm leading-7 text-[#b1cad7]">{description}</p>
-          </div>
-          {form}
-        </div>
-      </section>
+const AuthButton = ({
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <button
+    {...props}
+    className={cn(
+      'inline-flex w-full items-center justify-center rounded-[4px] bg-[linear-gradient(135deg,#e9c176,#7a5510)] px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] text-[#281a00] transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70',
+      className,
+    )}
+  />
+)
 
-      <aside className="bg-[#0e0e0e] p-6 lg:p-10">
-        <div className="space-y-4">
-          <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#bcc9c5]">{sideTitle}</div>
-          {sideChildren}
-        </div>
-      </aside>
-    </main>
+const AuthLinkButton = ({ to, children }: { to: string; children: React.ReactNode }) => (
+  <Link
+    className="inline-flex items-center justify-center rounded-[4px] border border-[rgba(118,117,120,0.26)] bg-[#111215] px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.14em] text-[#b9c1cb] transition hover:border-[rgba(216,181,116,0.34)] hover:text-[#ece7df]"
+    to={to}
+  >
+    {children}
+  </Link>
+)
+
+const AuthPanel = ({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode
+  title: string
+  body: string
+}) => (
+  <div className="rounded-[4px] border border-[rgba(118,117,120,0.18)] bg-[#16181b] p-4">
+    <div className="flex items-center gap-3">
+      <div className="flex size-9 items-center justify-center rounded-[4px] bg-[#0f1113] text-[#d8b574]">{icon}</div>
+      <div className="font-display text-lg font-semibold tracking-[-0.04em] text-[#f1ede7]">{title}</div>
+    </div>
+    <div className="mt-3 text-sm leading-6 text-[#9ea6b0]">{body}</div>
   </div>
 )
 
-const AuthPanel = ({ title, body }: { title: string; body: string }) => (
-  <div className="bg-[#1c1b1b] p-5">
-    <div className="font-display text-lg font-bold uppercase tracking-[-0.03em] text-[#e5e2e1]">{title}</div>
-    <div className="mt-2 text-sm leading-7 text-[#b1cad7]">{body}</div>
-  </div>
-)
-
-const PersonaList = () => {
-  const personas = getSeed().users.slice(0, 6).map((user) => ({
-    name: user.displayName,
-    status: user.locked ? 'Locked' : !user.verified || user.status === 'unverified' ? 'Verification needed' : 'Ready',
-    detail: `${user.analysisFocus} focus · ${user.defaultAccountCurrency} account`,
-  }))
+const AuthStats = () => {
+  const seed = getSeed()
+  const stats = [
+    { label: 'Pairs', value: seed.pairs.length },
+    { label: 'Events', value: seed.events.length },
+    { label: 'News', value: seed.news.length },
+  ]
 
   return (
-    <div className="space-y-px bg-[rgba(61,73,70,0.12)]">
-      {personas.map((persona) => (
-        <div className="flex items-start justify-between gap-4 bg-[#1c1b1b] p-4" key={persona.name}>
-          <div>
-            <div className="text-base font-semibold text-[#e5e2e1]">{persona.name}</div>
-            <div className="mt-1 text-xs uppercase tracking-[0.14em] text-[#bcc9c5]">{persona.detail}</div>
-          </div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#70d8c8]">{persona.status}</div>
+    <div className="grid gap-px bg-[rgba(72,72,75,0.4)] sm:grid-cols-3">
+      {stats.map((stat) => (
+        <div className="bg-[#15171a] px-4 py-4" key={stat.label}>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-[#8f98a3]">{stat.label}</div>
+          <div className="mt-2 font-display text-2xl font-semibold tracking-[-0.05em] text-[#f4f0ea]">{stat.value}</div>
         </div>
       ))}
     </div>
   )
 }
 
+const statusLabel = (locked: boolean, verified: boolean, status: string) => {
+  if (locked) return 'Locked'
+  if (!verified || status === 'unverified') return 'Verify'
+  return 'Ready'
+}
+
+const statusTone = (locked: boolean, verified: boolean, status: string) => {
+  if (locked) return 'border-rose-500/20 bg-rose-500/10 text-rose-200'
+  if (!verified || status === 'unverified') return 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+  return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+}
+
+const PersonaList = ({ onSelect }: { onSelect?: (email: string, password: string) => void }) => {
+  const personas = [...getSeed().users]
+    .sort((left, right) => Number(left.locked) - Number(right.locked) || Number(!left.verified) - Number(!right.verified))
+    .slice(0, 5)
+
+  return (
+    <div className="space-y-2">
+      {personas.map((persona) => (
+        <button
+          className="flex w-full items-start justify-between gap-4 rounded-[4px] border border-[rgba(118,117,120,0.16)] bg-[#16181b] p-4 text-left transition hover:border-[rgba(216,181,116,0.26)] hover:bg-[#1a1d20]"
+          key={persona.id}
+          onClick={() => onSelect?.(persona.email, persona.password)}
+          type="button"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-[4px] bg-[#0f1113] text-[#d8b574]">
+                <UserRound className="size-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-[#f2efea]">{persona.displayName}</div>
+                <div className="truncate text-[11px] text-[#87909b]">{persona.email}</div>
+              </div>
+            </div>
+            <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-[#97a1ab]">
+              {persona.analysisFocus} focus · {persona.defaultAccountCurrency}
+            </div>
+          </div>
+          <span
+            className={cn(
+              'shrink-0 rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em]',
+              statusTone(persona.locked, persona.verified, persona.status),
+            )}
+          >
+            {statusLabel(persona.locked, persona.verified, persona.status)}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const AuthWorkspace = ({
+  eyebrow,
+  title,
+  description,
+  formTitle,
+  formDescription,
+  form,
+  sideTitle,
+  sideChildren,
+  footer,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  formTitle?: string
+  formDescription?: string
+  form: React.ReactNode
+  sideTitle: string
+  sideChildren: React.ReactNode
+  footer?: React.ReactNode
+}) => (
+  <div className="min-h-screen overflow-x-hidden bg-[#0c0d0f] text-[#ece8e3]">
+    <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b border-[rgba(72,72,75,0.22)] bg-[#0c0d0f]/95 px-6 py-5 backdrop-blur lg:px-10">
+      <Link className="flex items-center gap-3" to="/">
+        <Shield className="size-5 text-[#d8b574]" />
+        <span className="font-display text-lg font-semibold tracking-[-0.05em] text-[#f3eee7]">SOVEREIGN ANALYTICS</span>
+      </Link>
+      <Link className="text-[11px] uppercase tracking-[0.22em] text-[#9ea6b0] transition hover:text-[#ece8e3]" to="/">
+        Overview
+      </Link>
+    </header>
+
+    <main className="grid min-h-screen pt-[78px] lg:grid-cols-[1.02fr_0.98fr]">
+      <section className="relative hidden overflow-hidden border-r border-[rgba(72,72,75,0.18)] bg-[#111214] lg:flex">
+        <div className="absolute inset-0 opacity-50 [background-image:linear-gradient(to_right,rgba(72,72,75,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(72,72,75,0.14)_1px,transparent_1px)] [background-size:40px_40px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(216,181,116,0.08),transparent_36%)]" />
+        <div className="relative flex w-full flex-col justify-between px-16 py-14 xl:px-20">
+          <div className="max-w-xl space-y-8">
+            <div className="inline-flex items-center gap-3 text-[#d8b574]">
+              <span className="h-px w-8 bg-current" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.32em]">{eyebrow}</span>
+            </div>
+            <div className="space-y-4">
+              <h1 className="font-display text-[4.3rem] font-semibold uppercase leading-[0.92] tracking-[-0.08em] text-[#f4f0ea] xl:text-[5.1rem]">
+                {title}
+              </h1>
+              <p className="max-w-lg text-sm leading-7 text-[#9da5af]">{description}</p>
+            </div>
+            <AuthStats />
+            <div className="space-y-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8f98a3]">{sideTitle}</div>
+              {sideChildren}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-[#747b84]">
+            <div className="size-2 rounded-full bg-[#d8b574]/60" />
+            <span>Workspace Access</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative flex min-h-[calc(100vh-78px)] items-center justify-center overflow-hidden px-6 py-10 lg:px-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,181,116,0.06),transparent_45%)]" />
+        <div className="relative z-10 w-full max-w-[460px] space-y-6">
+          <div className="space-y-5 lg:hidden">
+            <div className="inline-flex items-center gap-3 text-[#d8b574]">
+              <span className="h-px w-7 bg-current" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.32em]">{eyebrow}</span>
+            </div>
+            <div className="space-y-3">
+              <h1 className="font-display text-[2.7rem] font-semibold uppercase leading-[0.94] tracking-[-0.08em] text-[#f4f0ea]">{title}</h1>
+              <p className="text-sm leading-7 text-[#9da5af]">{description}</p>
+            </div>
+            <AuthStats />
+          </div>
+
+          <div className="relative overflow-hidden rounded-[4px] border border-[rgba(118,117,120,0.2)] bg-[#17191c] p-7 shadow-[0_28px_100px_rgba(0,0,0,0.42)] sm:p-9">
+            <div className="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-[#d8b574] to-transparent opacity-75" />
+            <div className="space-y-2">
+              <h2 className="font-display text-3xl font-semibold tracking-[-0.05em] text-[#f4f0ea]">{formTitle ?? title}</h2>
+              {formDescription ? <p className="text-sm text-[#98a0a8]">{formDescription}</p> : null}
+            </div>
+            <div className="mt-8 space-y-6">{form}</div>
+          </div>
+
+          {footer ? <div className="space-y-3">{footer}</div> : null}
+        </div>
+      </section>
+    </main>
+  </div>
+)
+
 export const LandingPage = () => (
   (() => {
     const seed = getSeed()
     const highlights = [
       `Track ${seed.currencies.length} currency profiles with linked macro context and strength narratives.`,
-      `Analyze ${seed.pairs.length} seeded FX pairs across events, technical structure, simulations, and forecasts.`,
+      `Analyze ${seed.pairs.length} FX pairs across events, technical structure, simulations, and forecasts.`,
       `Explore ${seed.events.length + seed.news.length}+ connected macro events and market stories across the platform.`,
     ]
     const modules = [
@@ -114,7 +264,7 @@ export const LandingPage = () => (
         code: 'M_01',
         title: 'Market Overview',
         href: '/login',
-        summary: 'Real-time visualization of mock liquidity flows, volatility buckets, strength rankings, and event risk across the shared market model.',
+        summary: 'Monitor volatility, strength rankings, pair dispersion, and event pressure across the global FX workspace.',
       },
       {
         code: 'M_02',
@@ -136,9 +286,9 @@ export const LandingPage = () => (
       },
       {
         code: 'M_05',
-        title: 'Forecast Demo',
+        title: 'Forecast Studio',
         href: '/login',
-        summary: 'Inspect illustrative path bands and driver weighting objects derived from the same pair narratives used elsewhere.',
+        summary: 'Inspect path bands, uncertainty curves, and driver weighting aligned with the same pair narratives used elsewhere.',
       },
     ]
     const feedItems = seed.news.slice(0, 4).map((item) => item.headline.toUpperCase().replace(/[^A-Z0-9/ ]/g, '').trim())
@@ -151,7 +301,7 @@ export const LandingPage = () => (
             <h1 className="font-display text-lg font-bold tracking-[-0.04em] text-[#70d8c8] lg:text-xl">SOVEREIGN ANALYTICS</h1>
           </div>
           <Link className="bg-[#70d8c8] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#003731] transition hover:bg-[#32a192]" to="/login">
-            Enter Demo
+            Open Workspace
           </Link>
         </header>
 
@@ -173,11 +323,11 @@ export const LandingPage = () => (
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Link className="group flex w-full items-center justify-between bg-[#32a192] px-6 py-4 font-display text-sm font-bold uppercase tracking-[0.18em] text-[#00302a] transition hover:bg-[#70d8c8]" to="/login">
-                  <span>ENTER DEMO TERMINAL</span>
+                  <span>OPEN PLATFORM</span>
                   <ArrowRight className="size-4 transition group-hover:translate-x-1" />
                 </Link>
                 <Link className="w-full border border-[rgba(61,73,70,0.3)] px-6 py-4 text-left font-display text-sm font-medium uppercase tracking-[0.14em] text-[#b1cad7] transition hover:bg-[#353534]" to="/signup">
-                  CREATE MOCK ACCOUNT
+                  CREATE ACCOUNT
                 </Link>
               </div>
 
@@ -211,7 +361,7 @@ export const LandingPage = () => (
 
           <div className="mx-6 border-l-2 border-[#ffba38] bg-[#ffba3817] p-4 lg:mx-10">
             <p className="max-w-4xl text-[11px] leading-6 text-[#ffdeac]">
-              Demo data powers this experience. Live brokers, real-time market feeds, and production forecasting services are not connected in this build.
+              Historical FX series, current rates, and news flows are available in the workspace. Execution and brokerage connectivity remain external.
             </p>
           </div>
 
@@ -227,7 +377,7 @@ export const LandingPage = () => (
               </div>
             </div>
             <div className="bg-[#1c1b1b] p-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#bcc9c5]">How It Works</div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#bcc9c5]">Research Flow</div>
               <div className="mt-3 text-sm leading-7 text-[#b1cad7]">
                 Move from macro context into a pair, launch a prefilled simulation, save the scenario, then carry that context into watchlists, notes, and portfolio exposure.
               </div>
@@ -235,7 +385,7 @@ export const LandingPage = () => (
             <div className="bg-[#1c1b1b] p-4">
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#bcc9c5]">Shared Data Model</div>
               <div className="mt-3 text-sm leading-7 text-[#b1cad7]">
-                The same seeded entities power currencies, pairs, events, forecasts, alerts, and personas, so the product stays structurally connected even without a backend.
+                The same underlying entities power currencies, pairs, events, forecasts, alerts, and personas so the product stays structurally connected.
               </div>
             </div>
           </div>
@@ -286,9 +436,12 @@ export const LoginPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { refreshUser } = useAppState()
-  const [email, setEmail] = useState('macro@sovereign.demo')
-  const [password, setPassword] = useState('macro123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const visibleUsers = [...getSeed().users]
+    .sort((left, right) => Number(left.locked) - Number(right.locked) || Number(!left.verified) - Number(!right.verified))
+    .slice(0, 4)
   const intendedPath = (location.state as { from?: string } | null)?.from
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -303,47 +456,78 @@ export const LoginPage = () => {
 
   return (
     <AuthWorkspace
-      description="Use one of the seeded analyst accounts to enter the platform. Different personas carry different preferences, watchlists, simulations, and portfolio context."
-      eyebrow="Identity"
+      description="Use an existing analyst account or create a new one."
+      eyebrow="Access"
+      footer={
+        <>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8f98a3]">Quick fill</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {visibleUsers.map((user) => (
+              <button
+                className="rounded-[4px] border border-[rgba(118,117,120,0.18)] bg-[#141518] px-4 py-3 text-left transition hover:border-[rgba(216,181,116,0.3)] hover:bg-[#181a1d]"
+                key={user.id}
+                onClick={() => {
+                  setEmail(user.email)
+                  setPassword(user.password)
+                  setError('')
+                }}
+                type="button"
+              >
+                <div className="text-sm font-semibold text-[#f0ece7]">{user.displayName}</div>
+                <div className="mt-1 text-[11px] text-[#8f98a3]">{user.email}</div>
+              </button>
+            ))}
+          </div>
+        </>
+      }
+      formDescription="Email and password"
+      formTitle="Login"
       form={
         <>
-          <form className="space-y-4" onSubmit={submit}>
+          <form className="space-y-6" onSubmit={submit}>
             <div className="grid gap-4">
-              <label className="space-y-2 text-sm text-[#bcc9c5]">
-                <span>Email</span>
-                <AuthInput autoComplete="email" placeholder="macro@sovereign.demo" value={email} onChange={(event) => setEmail(event.target.value)} />
-              </label>
-              <label className="space-y-2 text-sm text-[#bcc9c5]">
-                <span>Password</span>
-                <AuthInput autoComplete="current-password" placeholder="macro123" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-              </label>
+              <AuthField label="Email">
+                <AuthInput autoComplete="email" placeholder="name@sovereignanalytics.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+              </AuthField>
+              <AuthField
+                action={
+                  <Link className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d8b574] transition hover:text-[#ead198]" to="/forgot-password">
+                    Forgot
+                  </Link>
+                }
+                label="Password"
+              >
+                <AuthInput autoComplete="current-password" placeholder="Enter your password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+              </AuthField>
             </div>
-            {error ? <div className="rounded-[2px] border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
-            <PrimaryButton className="w-full" type="submit">
-              Continue to dashboard
-            </PrimaryButton>
+            {error ? <div className="rounded-[4px] border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
+            <AuthButton type="submit">Secure login</AuthButton>
           </form>
-          <div className="flex items-center justify-between text-sm text-[#b1cad7]">
-            <Link className="transition hover:text-[#70d8c8]" to="/forgot-password">Forgot password</Link>
-            <Link className="transition hover:text-[#70d8c8]" to="/signup">Create account</Link>
+          <div className="flex items-center justify-between gap-4 text-sm text-[#9ea6b0]">
+            <span>Need a new account?</span>
+            <Link className="font-semibold text-[#d8b574] transition hover:text-[#ecd7a6]" to="/signup">
+              Create one
+            </Link>
           </div>
         </>
       }
       sideChildren={
         <>
-          <PersonaList />
-          <div className="grid gap-px bg-[rgba(61,73,70,0.12)] md:grid-cols-2">
-            <AuthPanel title="Saved State" body="Persona changes affect favorite pairs, layout density, notes, watchlists, and current portfolio context across the app." />
-            <AuthPanel title="Session Return" body="Protected routes return you to the intended screen after authentication or verification so flows stay connected." />
-          </div>
+          <PersonaList
+            onSelect={(selectedEmail, selectedPassword) => {
+              setEmail(selectedEmail)
+              setPassword(selectedPassword)
+              setError('')
+            }}
+          />
           <div className="grid gap-3 md:grid-cols-2">
-            <DemoRow label="Recovery" value="Forgot password" href="/forgot-password" />
-            <DemoRow label="Registration" value="Create mock account" href="/signup" />
+            <AuthPanel body="Real users load their own preferences, watchlists, and portfolio state." icon={<Radar className="size-4" />} title="Workspace state" />
+            <AuthPanel body="Locked and verification-required accounts stay available for route testing." icon={<LockKeyhole className="size-4" />} title="Access checks" />
           </div>
         </>
       }
-      sideTitle="Analyst Personas"
-      title="Access Terminal"
+      sideTitle="Current Accounts"
+      title="ENTER THE RESEARCH WORKSPACE"
     />
   )
 }
@@ -357,11 +541,13 @@ export const SignupPage = () => {
   const [error, setError] = useState('')
   return (
     <AuthWorkspace
-      description="Create a new local account profile for the platform. After verification, onboarding will set dashboard defaults, risk preferences, favorite currencies, and simulation behavior."
+      description="Create a workspace account and continue into onboarding."
       eyebrow="Registration"
+      formDescription="Name, email, password"
+      formTitle="Create account"
       form={
         <form
-          className="space-y-4"
+          className="space-y-6"
           onSubmit={async (event) => {
             event.preventDefault()
             try {
@@ -374,34 +560,36 @@ export const SignupPage = () => {
           }}
         >
           <div className="grid gap-4">
-            <label className="space-y-2 text-sm text-[#bcc9c5]">
-              <span>Display name</span>
+            <AuthField label="Display name">
               <AuthInput autoComplete="name" placeholder="Amina Research" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-            </label>
-            <label className="space-y-2 text-sm text-[#bcc9c5]">
-              <span>Email</span>
-              <AuthInput autoComplete="email" placeholder="analyst@sovereign.demo" value={email} onChange={(event) => setEmail(event.target.value)} />
-            </label>
-            <label className="space-y-2 text-sm text-[#bcc9c5]">
-              <span>Password</span>
+            </AuthField>
+            <AuthField label="Email">
+              <AuthInput autoComplete="email" placeholder="name@sovereignanalytics.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </AuthField>
+            <AuthField label="Password">
               <AuthInput autoComplete="new-password" placeholder="Create a password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            </label>
+            </AuthField>
           </div>
-          {error ? <div className="rounded-[2px] border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
-          <PrimaryButton className="w-full" type="submit">
-            Create account
-          </PrimaryButton>
+          {error ? <div className="rounded-[4px] border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
+          <AuthButton type="submit">Create account</AuthButton>
+          <div className="flex items-center justify-between gap-4 text-sm text-[#9ea6b0]">
+            <span>Already registered?</span>
+            <Link className="font-semibold text-[#d8b574] transition hover:text-[#ecd7a6]" to="/login">
+              Log in
+            </Link>
+          </div>
         </form>
       }
       sideChildren={
-        <div className="grid gap-px bg-[rgba(61,73,70,0.12)]">
-          <AuthPanel title="Onboarding Ready" body="New accounts flow directly into onboarding so preferred currencies, dashboard style, and analysis focus shape the workspace from the first session." />
-          <AuthPanel title="Local Persistence" body="Session state, notes, simulations, watchlist changes, alerts, and profile preferences remain available in the browser for continued exploration." />
-          <AuthPanel title="Verification Step" body="New accounts still pass through verification so the product keeps a realistic route flow before entering the main application." />
+        <div className="grid gap-3 md:grid-cols-2">
+          <AuthPanel body="Set favorites, risk profile, dashboard density, and default account currency." icon={<CandlestickChart className="size-4" />} title="Onboarding" />
+          <AuthPanel body="Save alerts, notes, watchlists, and portfolio activity under your own workspace." icon={<BriefcaseBusiness className="size-4" />} title="Workspace" />
+          <AuthPanel body="Verification stays in the flow before the platform opens." icon={<Shield className="size-4" />} title="Verification" />
+          <AuthPanel body="Current market data and live news are available after sign-in." icon={<Radar className="size-4" />} title="Live data" />
         </div>
       }
-      sideTitle="Account Setup"
-      title="Create Account"
+      sideTitle="What Opens Next"
+      title="CREATE A NEW ACCESS PROFILE"
     />
   )
 }
@@ -410,83 +598,103 @@ export const ForgotPasswordPage = () => {
   const navigate = useNavigate()
   return (
     <AuthWorkspace
-      description="Recover access to the platform by simulating an email-based reset flow. This stays local to the product shell but preserves the same route behavior as a real app."
+      description="Send a reset link to the account email."
       eyebrow="Recovery"
+      formDescription="Account email"
+      formTitle="Reset password"
       form={
         <form
-          className="space-y-4"
+          className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault()
             navigate('/reset-success')
           }}
         >
-          <label className="space-y-2 text-sm text-[#bcc9c5]">
-            <span>Email</span>
-            <AuthInput autoComplete="email" placeholder="name@sovereign.demo" />
-          </label>
-          <PrimaryButton className="w-full" type="submit">
-            Send reset link
-          </PrimaryButton>
+          <AuthField label="Email">
+            <AuthInput autoComplete="email" placeholder="name@sovereignanalytics.com" />
+          </AuthField>
+          <AuthButton type="submit">Send reset link</AuthButton>
+          <div className="flex items-center justify-between gap-4 text-sm text-[#9ea6b0]">
+            <span>Remembered your password?</span>
+            <Link className="font-semibold text-[#d8b574] transition hover:text-[#ecd7a6]" to="/login">
+              Back to login
+            </Link>
+          </div>
         </form>
       }
       sideChildren={
-        <div className="grid gap-px bg-[rgba(61,73,70,0.12)]">
-          <AuthPanel title="Reset Flow" body="This route mirrors a standard password recovery path so the platform remains complete even though no external email provider is connected." />
-          <AuthPanel title="Return Path" body="After confirmation, the flow hands you back to the login screen so you can continue with the same intended destination." />
+        <div className="grid gap-3">
+          <AuthPanel body="Request a reset link." icon={<KeyRound className="size-4" />} title="01" />
+          <AuthPanel body="Open the link and confirm your account." icon={<Shield className="size-4" />} title="02" />
+          <AuthPanel body="Return to the platform and continue." icon={<CheckCircle2 className="size-4" />} title="03" />
         </div>
       }
-      sideTitle="Access Recovery"
-      title="Reset Access"
+      sideTitle="Recovery Steps"
+      title="RECOVER ACCOUNT ACCESS"
     />
   )
 }
 
 export const ResetSuccessPage = () => (
   <AuthWorkspace
-    description="The recovery request has been accepted. In a production build this step would hand off to email delivery; here it confirms the route flow and returns you to sign-in."
+    description="Reset instructions have been issued."
     eyebrow="Recovery Complete"
-    form={<ButtonLink to="/login">Return to login</ButtonLink>}
-    sideChildren={
-      <div className="grid gap-px bg-[rgba(61,73,70,0.12)]">
-        <AuthPanel title="Next Step" body="Return to the login screen and continue with one of the seeded analysts or your newly created account." />
+    formDescription="Password reset"
+    formTitle="Check your inbox"
+    form={
+      <div className="space-y-6">
+        <div className="rounded-[4px] border border-[rgba(118,117,120,0.18)] bg-[#111316] px-4 py-4 text-sm text-[#aab1bb]">
+          A reset link has been generated for this environment.
+        </div>
+        <AuthLinkButton to="/login">Return to login</AuthLinkButton>
       </div>
     }
-    sideTitle="Password Reset"
-    title="Request Accepted"
+    sideChildren={
+        <div className="grid gap-3 md:grid-cols-2">
+          <AuthPanel body="Use the same email on the login screen once the reset is complete." icon={<Mail className="size-4" />} title="Return path" />
+          <AuthPanel body="Session routing stays intact after recovery." icon={<ArrowRight className="size-4" />} title="Continue" />
+        </div>
+    }
+    sideTitle="Next Step"
+    title="RESET REQUEST ACCEPTED"
   />
 )
 
 export const VerifyPage = () => {
   const navigate = useNavigate()
-  const { refreshUser } = useAppState()
+  const { refreshUser, user } = useAppState()
   return (
     <AuthWorkspace
-      description="Verification completes access for unverified or multi-factor-enabled personas before the platform opens onboarding or the main application shell."
+      description="Validate the current session and continue."
       eyebrow="Verification"
+      formDescription="One-time code"
+      formTitle="Verify session"
       form={
-        <>
-          <div className="rounded-[2px] border border-[rgba(176,202,215,0.12)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm text-[#b1cad7]">Verification code: `241913`</div>
-          <PrimaryButton
-            className="w-full"
+        <div className="space-y-6">
+          <div className="rounded-[4px] border border-[rgba(216,181,116,0.18)] bg-[rgba(216,181,116,0.08)] px-4 py-4 text-sm text-[#efe2be]">
+            Verification code: <span className="font-semibold tracking-[0.24em]">241913</span>
+          </div>
+          <AuthButton
             onClick={async () => {
               await authApi.verifyOtp()
               await refreshUser()
-              navigate('/onboarding')
+              const nextUser = appApi.getCurrentUser()
+              navigate(nextUser?.onboardingCompleted ? '/app/dashboard' : '/onboarding')
             }}
             type="button"
           >
             Validate session
-          </PrimaryButton>
-        </>
-      }
-      sideChildren={
-        <div className="grid gap-px bg-[rgba(61,73,70,0.12)]">
-          <AuthPanel title="Protected Entry" body="Verification keeps the route flow realistic for accounts that require confirmation before entering the product workspace." />
-          <AuthPanel title="Continuation" body="Once validated, the flow continues into onboarding for new users or into the main application for returning personas." />
+          </AuthButton>
         </div>
       }
-      sideTitle="Session Verification"
-      title="Verify Access"
+      sideChildren={
+        <div className="grid gap-3">
+          <AuthPanel body={user?.email ?? 'Current session'} icon={<Shield className="size-4" />} title="Identity" />
+          <AuthPanel body={user?.onboardingCompleted ? 'Dashboard is next.' : 'Onboarding is next.'} icon={<ArrowRight className="size-4" />} title="Route" />
+        </div>
+      }
+      sideTitle="Session State"
+      title="CONFIRM CURRENT SESSION"
     />
   )
 }

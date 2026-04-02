@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LoadingPanel } from '../../components/ui/primitives'
-import { appApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/api'
 import { buildEntityLabel } from '../../domain/selectors'
 import type { AlertConditionType, EntityType, WatchEntityType, WatchlistItem } from '../../domain/types'
 import { useAsyncResource } from '../../lib/useAsyncResource'

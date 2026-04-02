@@ -187,7 +187,10 @@ export interface MacroEvent {
   actual?: string
   surpriseDirection?: 'positive' | 'negative' | 'inline'
   urgency: number
-  scenarioNarrative: string
+  scenarioNarrative?: string
+  summary?: string
+  source?: string
+  sourceUrl?: string
 }
 
 export interface NewsItem {
@@ -200,9 +203,12 @@ export interface NewsItem {
   eventIds: string[]
   sentiment: SentimentTone
   impact: ImpactLevel
-  explanation: string
-  whyItMatters: string
-  reactionBias: string
+  explanation?: string
+  whyItMatters?: string
+  reactionBias?: string
+  summary?: string
+  url?: string
+  evaluated?: boolean
 }
 
 export interface ForecastPathPoint {

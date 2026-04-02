@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LoadingPanel, Page } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
-import { appApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/api'
 import { formatDateTime, title } from '../../lib/utils'
 
 const fieldClass = 'w-full border-none bg-[color:var(--panel-2)] px-3 py-2.5 text-sm text-[var(--text)] outline-none'
@@ -14,8 +14,8 @@ export const AdminPage = () => {
   const [eventId, setEventId] = useState('evt-us-cpi')
   const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin'>('all')
 
-  if (!user) return <LoadingPanel label="Loading admin inspector…" />
-  if (user.role !== 'admin') return <Page title="Admin">Current persona does not have access to the demo inspector.</Page>
+  if (!user) return <LoadingPanel label="Loading control center…" />
+  if (user.role !== 'admin') return <Page title="Admin">Current persona does not have access to the control center.</Page>
 
   const currentCurrency = seed.currencies.find((item) => item.code === currency)
   const currentEvent = seed.events.find((item) => item.id === eventId)
@@ -45,7 +45,7 @@ export const AdminPage = () => {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_repeat(8,minmax(0,8rem))]">
           <div>
             <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--muted)]">Mutation console</div>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">Admin Inspector</h1>
+            <h1 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">Control Center</h1>
           </div>
           {[
             ['Users', seed.users.length],
@@ -93,7 +93,7 @@ export const AdminPage = () => {
           </div>
 
           <div className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Seeded collections</div>
+            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">System collections</div>
             <div className="grid gap-2 md:grid-cols-2">
               {[
                 ['Active users', seed.users.filter((item) => item.status === 'active').length],

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { StrengthChart } from '../../components/charts/analytics'
-import { appApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/api'
 import { buildEntityLabel } from '../../domain/selectors'
 import { formatCurrency } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
@@ -148,7 +148,7 @@ export const DashboardPage = () => {
                   <div>
                     <h3 className="mb-1 text-xs font-bold uppercase leading-tight text-[#e5e2e1]">{item.headline}</h3>
                     <p className="text-[10px] leading-5 text-[#bcc9c5]">
-                      <span className="font-bold text-[#70d8c8]">Why it matters:</span> {item.whyItMatters}
+                      <span className="font-bold text-[#70d8c8]">{item.evaluated === false ? 'Summary:' : 'Why it matters:'}</span> {item.whyItMatters ?? item.explanation ?? item.summary ?? 'Live headline captured from the active feed.'}
                     </p>
                   </div>
                 </div>

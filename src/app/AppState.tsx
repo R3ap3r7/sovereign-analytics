@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { appApi } from '../domain/services/mockApi'
-import { mutationStorageApi } from '../domain/persistence'
+import { appApi } from '../domain/services/api'
 import type { AdminMarketMutation, Settings, Simulation, User } from '../domain/types'
 
 interface AppStateValue {
@@ -20,13 +19,17 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeSimulation, setActiveSimulation] = useState<Simulation | null>(null)
-  const [adminMutation, setMutationState] = useState<AdminMarketMutation>(mutationStorageApi.readAdminMutation())
+  const [adminMutation, setMutationState] = useState<AdminMarketMutation>(appApi.getAdminMutation())
 
   const refreshUser = async () => {
     setLoading(true)
-    const currentUser = appApi.getCurrentUser()
-    setUser(currentUser)
-    setLoading(false)
+    try {
+      await appApi.hydrate()
+      setUser(appApi.getCurrentUser())
+      setMutationState(appApi.getAdminMutation())
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -52,6 +55,8 @@ export const AppStateProvider = ({ children }: { children: React.ReactNode }) =>
     }),
     [user, loading, activeSimulation, adminMutation],
   )
+
+  if (loading) return null
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>
 }

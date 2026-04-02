@@ -49,7 +49,7 @@ export const EventCard = ({ event }: { event: MacroEvent }) => (
           <span key={code} className="font-mono rounded-full border border-[var(--line)] px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{code}</span>
         ))}
       </div>
-      <div className="mt-3 text-sm text-[var(--muted)]">{event.scenarioNarrative}</div>
+      <div className="mt-3 text-sm text-[var(--muted)]">{event.summary ?? event.scenarioNarrative ?? 'Official release captured in the live macro feed.'}</div>
       <div className="font-mono mt-4 text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">{formatDateTime(event.scheduledAt)}</div>
     </Panel>
   </Link>
@@ -64,8 +64,8 @@ export const NewsCard = ({ item }: { item: NewsItem }) => (
       </div>
       <Badge tone={item.sentiment === 'bullish' ? 'accent' : item.sentiment === 'bearish' ? 'danger' : 'default'}>{item.sentiment}</Badge>
     </div>
-    <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-[var(--accent-2)]">Why it matters</div>
-    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.whyItMatters}</p>
+    <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-[var(--accent-2)]">{item.evaluated === false ? 'Summary' : 'Why it matters'}</div>
+    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.whyItMatters ?? item.explanation ?? item.summary ?? 'Live headline captured. Context has not been evaluated yet.'}</p>
     <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
       {item.currencyCodes.map((code) => (
         <span key={code} className="font-mono rounded-full border border-[var(--line)] px-2 py-1 uppercase tracking-[0.14em]">{code}</span>

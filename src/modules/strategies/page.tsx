@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ForecastChart, PerformanceChart } from '../../components/charts/analytics'
 import { LoadingPanel } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
-import { getSeed } from '../../domain/services/mockApi'
+import { getSeed } from '../../domain/services/api'
 import { useAsyncResource } from '../../lib/useAsyncResource'
 
 const tabClass = (active: boolean) =>
@@ -177,7 +177,7 @@ export const StrategyLabPage = () => {
 
         <aside className="space-y-6">
           <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Regime sandbox</div>
+            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Regime lab</div>
             <div className="space-y-2">
               {data.scenarios.map((scenario) => (
                 <button className={tabClass(scenario.id === selectedScenario.id)} key={scenario.id} onClick={() => setSelectedScenarioId(scenario.id)} type="button">

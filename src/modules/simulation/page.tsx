@@ -4,7 +4,7 @@ import { PriceChart } from '../../components/charts/analytics'
 import { LoadingPanel } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
 import { calculateTradeOutputs, generateMonteCarloSummary } from '../../domain/calculators'
-import { appApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, getSeed } from '../../domain/services/api'
 import type { Simulation } from '../../domain/types'
 import { formatCurrency, formatNumber, formatPercent, title } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
@@ -124,6 +124,10 @@ export const SimulationLabPage = () => {
   return (
     <div className="grid min-h-[calc(100vh-4rem)] gap-6 xl:grid-cols-[minmax(0,1fr)_19rem]">
       <div className="space-y-6">
+        <section className="border-l-2 border-[var(--warning)] bg-[rgba(224,180,108,0.08)] px-4 py-3 text-sm text-[var(--text)]">
+          Scenario engine is currently running in manual mode. Live market prices are connected, but there is no historical strategy evaluator or precomputed simulation dataset behind this workspace yet.
+        </section>
+
         <section className="space-y-4 bg-[color:var(--panel)] p-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
@@ -445,24 +449,30 @@ export const SimulationLabPage = () => {
 
         <section className="bg-[color:var(--panel)] p-5">
           <h4 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Saved runs</h4>
-          <div className="space-y-2">
-            {data!.savedSimulations.map((saved) => (
-              <div className="bg-[color:var(--panel-2)] p-3 transition hover:bg-[color:var(--panel-3)]" key={saved.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <button className="flex-1 text-left" onClick={() => setDraft(saved)} type="button">
-                    <div className="text-sm font-semibold text-[var(--text)]">{saved.pairId.toUpperCase()}</div>
-                    <div className={saved.outputs.netPnL >= 0 ? 'mt-1 text-[11px] text-[var(--accent)]' : 'mt-1 text-[11px] text-[var(--danger)]'}>
-                      {saved.outputs.netPnL >= 0 ? '+' : ''}
-                      {formatCurrency(saved.outputs.netPnL)}
-                    </div>
-                  </button>
-                  <button className="text-[11px] font-medium text-[var(--muted)] transition hover:text-[var(--text)]" onClick={() => void appApi.duplicateSimulation(saved.id).then(setDraft)} type="button">
-                    Duplicate
-                  </button>
+          {data!.savedSimulations.length ? (
+            <div className="space-y-2">
+              {data!.savedSimulations.map((saved) => (
+                <div className="bg-[color:var(--panel-2)] p-3 transition hover:bg-[color:var(--panel-3)]" key={saved.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <button className="flex-1 text-left" onClick={() => setDraft(saved)} type="button">
+                      <div className="text-sm font-semibold text-[var(--text)]">{saved.pairId.toUpperCase()}</div>
+                      <div className={saved.outputs.netPnL >= 0 ? 'mt-1 text-[11px] text-[var(--accent)]' : 'mt-1 text-[11px] text-[var(--danger)]'}>
+                        {saved.outputs.netPnL >= 0 ? '+' : ''}
+                        {formatCurrency(saved.outputs.netPnL)}
+                      </div>
+                    </button>
+                    <button className="text-[11px] font-medium text-[var(--muted)] transition hover:text-[var(--text)]" onClick={() => void appApi.duplicateSimulation(saved.id).then(setDraft)} type="button">
+                      Duplicate
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-[color:var(--panel-2)] px-3 py-3 text-sm text-[var(--muted)]">
+              No saved runs yet. Save a manual scenario to keep it in the local workspace.
+            </div>
+          )}
         </section>
 
         <section className="bg-[color:var(--panel)] p-5">

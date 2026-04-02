@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LoadingPanel } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
-import { appApi, authApi, getSeed } from '../../domain/services/mockApi'
+import { appApi, authApi, getSeed } from '../../domain/services/api'
 import { formatDateTime, title } from '../../lib/utils'
 import { PrimaryButton } from '../shared'
 
@@ -48,7 +48,7 @@ export const SettingsPage = () => {
   const [alertsEnabled, setAlertsEnabled] = useState(user?.settings.notificationPrefs.alerts ?? true)
   const [newsEnabled, setNewsEnabled] = useState(user?.settings.notificationPrefs.news ?? true)
   const [eventsEnabled, setEventsEnabled] = useState(user?.settings.notificationPrefs.events ?? true)
-  const [mock2FAEnabled, setMock2FAEnabled] = useState(user?.settings.mock2FAEnabled ?? true)
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.settings.mock2FAEnabled ?? true)
   const [personaId, setPersonaId] = useState(user?.id ?? '')
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export const SettingsPage = () => {
     setAlertsEnabled(user.settings.notificationPrefs.alerts)
     setNewsEnabled(user.settings.notificationPrefs.news)
     setEventsEnabled(user.settings.notificationPrefs.events)
-    setMock2FAEnabled(user.settings.mock2FAEnabled)
+    setTwoFactorEnabled(user.settings.mock2FAEnabled)
     setPersonaId(user.id)
   }, [user])
 
@@ -112,7 +112,7 @@ export const SettingsPage = () => {
         news: newsEnabled,
         events: eventsEnabled,
       },
-      mock2FAEnabled,
+      mock2FAEnabled: twoFactorEnabled,
     })
   }
 
@@ -156,7 +156,7 @@ export const SettingsPage = () => {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="font-display font-extrabold text-2xl tracking-[-0.04em] text-[var(--text)]">Settings</h1>
-            <p className="text-sm text-[var(--muted)] max-w-2xl">Manage workspace preferences, visualization defaults, persona controls, and local security behavior for the Sovereign environment.</p>
+            <p className="text-sm text-[var(--muted)] max-w-2xl">Manage workspace preferences, visualization defaults, account routing, and access controls for the Sovereign environment.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <PrimaryButton onClick={save} type="button">Save</PrimaryButton>
@@ -269,7 +269,7 @@ export const SettingsPage = () => {
               <ToggleRow label="Alerts" checked={alertsEnabled} onChange={setAlertsEnabled} />
               <ToggleRow label="News" checked={newsEnabled} onChange={setNewsEnabled} />
               <ToggleRow label="Events" checked={eventsEnabled} onChange={setEventsEnabled} />
-              <ToggleRow label="Mock 2FA" checked={mock2FAEnabled} onChange={setMock2FAEnabled} />
+              <ToggleRow label="Two-factor check" checked={twoFactorEnabled} onChange={setTwoFactorEnabled} />
             </div>
           </div>
         </section>
@@ -312,7 +312,7 @@ export const SettingsPage = () => {
             <h2 className="text-sm font-bold text-[var(--danger)] mb-2 flex items-center gap-2">
               System Integrity
             </h2>
-            <p className="text-sm text-[var(--muted)]">Manage persona switching, onboarding recovery, and local demo reset operations.</p>
+            <p className="text-sm text-[var(--muted)]">Manage persona switching, onboarding recovery, and workspace reset operations.</p>
             <div className="mt-4 grid gap-3">
               <label className="block">
                 <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em]">Persona</div>
@@ -324,7 +324,7 @@ export const SettingsPage = () => {
               </label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <MiniStat label="Onboarding" value={user.onboardingCompleted ? 'Complete' : 'Pending'} />
-                <MiniStat label="2FA" value={mock2FAEnabled ? 'Enabled' : 'Off'} />
+                <MiniStat label="2FA" value={twoFactorEnabled ? 'Enabled' : 'Off'} />
               </div>
               <div className="flex flex-wrap gap-2">
                 <PrimaryButton
@@ -358,7 +358,7 @@ export const SettingsPage = () => {
                   secondary
                   type="button"
                 >
-                  Clear demo data
+                  Reset workspace state
                 </PrimaryButton>
               </div>
             </div>
