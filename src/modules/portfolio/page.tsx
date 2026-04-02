@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PerformanceChart } from '../../components/charts/analytics'
-import { LoadingPanel, Page, Panel, SectionTitle } from '../../components/ui/primitives'
+import { LoadingPanel } from '../../components/ui/primitives'
 import { appApi, getSeed } from '../../domain/services/mockApi'
 import { derivePortfolioExposure } from '../../domain/selectors'
 import { formatCurrency, formatNumber } from '../../lib/utils'
@@ -10,9 +10,9 @@ import { useAsyncResource } from '../../lib/useAsyncResource'
 const metricTone = (value: number) => (value >= 0 ? 'up' : 'down')
 
 const CompactMetric = ({ label, value, tone }: { label: string; value: string; tone?: 'up' | 'down' }) => (
-  <div className="bg-[color:var(--panel-2)] px-4 py-4">
+  <div className="bg-[color:var(--panel)] px-4 py-4">
     <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">{label}</div>
-    <div className={`mt-2 font-display text-[1.4rem] font-semibold tracking-[-0.03em] ${tone === 'up' ? 'text-[var(--success)]' : tone === 'down' ? 'text-[var(--danger)]' : ''}`}>
+    <div className={`mt-2 font-display text-[1.4rem] font-semibold tracking-[-0.03em] ${tone === 'up' ? 'text-[var(--accent)]' : tone === 'down' ? 'text-[var(--danger)]' : 'text-[var(--text)]'}`}>
       {value}
     </div>
   </div>
@@ -40,6 +40,18 @@ export const PortfolioPage = () => {
   const winCount = data.closedPositions.filter((item) => (item.realizedPnL ?? 0) >= 0).length
   const lossCount = data.closedPositions.filter((item) => (item.realizedPnL ?? 0) < 0).length
   const journalCount = data.journals.length
+  const quickPair = seed.pairs.find((pair) => pair.id === openPairId) ?? seed.pairs[0]
+  const equitySeries = [
+    { label: 'Start', equity: data.portfolio.startingBalance ?? data.portfolio.balance },
+    ...data.closedPositions.map((_, index) => ({
+      label: `T${index + 1}`,
+      equity:
+        (data.portfolio.startingBalance ?? data.portfolio.balance) +
+        data.closedPositions.slice(0, index + 1).reduce((acc, item) => acc + (item.realizedPnL ?? 0), 0),
+    })),
+    { label: 'Now', equity: data.portfolio.equity },
+  ]
+
   const refresh = async () => {
     const seedSnapshot = getSeed()
     const portfolioData = await appApi.getPortfolioWorkspace()
@@ -51,240 +63,226 @@ export const PortfolioPage = () => {
   }
 
   return (
-    <Page title="Portfolio">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
-        <Panel className="overflow-hidden p-0">
-          <div className="grid gap-px bg-[var(--line)] lg:grid-cols-[1.3fr_0.7fr]">
-            <div className="bg-[color:var(--panel-2)] px-5 py-5">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">Paper account</div>
-              <div className="mt-3 flex flex-wrap items-end gap-4">
-                <div className="font-display text-[2rem] font-semibold tracking-[-0.04em]">{data.portfolio.baseCurrency}</div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
-                  {data.openPositions.length} open · {data.closedPositions.length} closed · {journalCount} notes
-                </div>
-              </div>
-            </div>
-            <div className="grid gap-px bg-[var(--line)] sm:grid-cols-2">
-              <CompactMetric label="Balance" value={formatCurrency(data.portfolio.balance)} />
-              <CompactMetric label="Equity" value={formatCurrency(data.portfolio.equity)} />
-              <CompactMetric label="Margin used" value={formatCurrency(data.portfolio.marginUsed)} />
-              <CompactMetric label="Free margin" value={formatCurrency(data.portfolio.freeMargin)} />
-            </div>
-          </div>
-        </Panel>
+    <div className="space-y-4">
+      <section className="grid gap-0.5 overflow-hidden bg-[color:var(--panel-4)] lg:grid-cols-5">
+        <CompactMetric label="Account balance" value={`${formatCurrency(data.portfolio.balance)} ${data.portfolio.baseCurrency}`} />
+        <CompactMetric label="Equity" value={formatCurrency(data.portfolio.equity)} />
+        <CompactMetric label="Free margin" tone="up" value={formatCurrency(data.portfolio.freeMargin)} />
+        <CompactMetric label="Open pnl" tone={openTotal >= 0 ? 'up' : 'down'} value={formatCurrency(openTotal)} />
+        <CompactMetric label="Realized pnl" tone={realizedTotal >= 0 ? 'up' : 'down'} value={formatCurrency(realizedTotal)} />
+      </section>
 
-        <Panel>
-          <SectionTitle eyebrow="Snapshot" title="Book" />
-          <div className="grid gap-px bg-[var(--line)] sm:grid-cols-2">
-            <div className="bg-[color:var(--panel-2)] px-4 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Open pnl</div>
-              <div className={`mt-2 font-display text-2xl font-semibold ${openTotal >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                {formatCurrency(openTotal)}
-              </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <section className="overflow-hidden bg-[color:var(--panel)]">
+          <div className="flex items-center justify-between bg-[color:var(--panel-2)] px-4 py-2">
+            <div className="flex items-center gap-4">
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">Equity Curve</span>
+              <span className="text-[10px] text-[var(--muted)]">{data.openPositions.length} open · {data.closedPositions.length} closed · {journalCount} notes</span>
             </div>
-            <div className="bg-[color:var(--panel-2)] px-4 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Realized pnl</div>
-              <div className={`mt-2 font-display text-2xl font-semibold ${realizedTotal >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                {formatCurrency(realizedTotal)}
-              </div>
-            </div>
-            <div className="bg-[color:var(--panel-2)] px-4 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Win rate</div>
-              <div className="mt-2 font-display text-2xl font-semibold">
-                {data.closedPositions.length ? formatNumber((winCount / data.closedPositions.length) * 100, 0) : '0'}%
-              </div>
-            </div>
-            <div className="bg-[color:var(--panel-2)] px-4 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Losses</div>
-              <div className="mt-2 font-display text-2xl font-semibold text-[var(--danger)]">{lossCount}</div>
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <Panel>
-          <SectionTitle eyebrow="Performance" title="Equity curve" />
-          <PerformanceChart
-            data={[
-              { label: 'Start', equity: data.portfolio.startingBalance ?? data.portfolio.balance },
-              ...data.closedPositions.map((_, index) => ({
-                label: `T${index + 1}`,
-                equity:
-                  (data.portfolio.startingBalance ?? data.portfolio.balance) +
-                  data.closedPositions.slice(0, index + 1).reduce((acc, item) => acc + (item.realizedPnL ?? 0), 0),
-              })),
-              { label: 'Now', equity: data.portfolio.equity },
-            ]}
-            labelKey="label"
-            valueKey="equity"
-          />
-        </Panel>
-
-        <Panel>
-          <SectionTitle eyebrow="Orders" title="Activity" />
-          <div className="space-y-2">
-            {data.orders.slice(0, 8).map((order) => (
-              <div className="bg-[color:var(--panel-2)] px-4 py-3" key={order.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{order.action}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{order.pairId.toUpperCase()}</div>
-                </div>
-                <div className="mt-1 text-sm text-[var(--text)]">{order.detail}</div>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <Panel>
-          <SectionTitle eyebrow="Positions" title="Open book" />
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <select
-              className="border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2 text-sm outline-none transition hover:bg-[color:var(--panel-3)]"
-              value={openPairId}
-              onChange={(event) => setOpenPairId(event.target.value)}
-            >
-              {seed.pairs.map((pair) => (
-                <option key={pair.id} value={pair.id}>
-                  {pair.symbol}
-                </option>
+            <div className="flex gap-2">
+              {['1H', '4H', '1D'].map((range) => (
+                <button key={range} type="button" className={range === '4H' ? 'bg-[color:var(--panel-3)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--accent)]' : 'bg-[color:var(--panel)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]'}>
+                  {range}
+                </button>
               ))}
-            </select>
-            <button
-              className="border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2 text-sm uppercase tracking-[0.14em] transition hover:border-[var(--accent)] hover:bg-[color:var(--panel-3)] hover:text-[var(--accent)]"
-              onClick={() => void appApi.openPaperTrade(appApi.buildSimulationFromPair(openPairId)).then(refresh)}
-              type="button"
-            >
-              Open trade
-            </button>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            {data.openPositions.map((position) => (
-              <div className="bg-[color:var(--panel-2)] px-4 py-4" key={position.id}>
-                <div className="grid gap-3 xl:grid-cols-[1.05fr_0.8fr_0.8fr_0.8fr_0.7fr_auto]">
-                  <div>
-                    <Link className="font-display text-[1.25rem] font-semibold tracking-[-0.03em]" to={`/app/markets/${position.pairId}`}>
-                      {position.pairId.toUpperCase()}
-                    </Link>
-                    <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                      {position.direction} · {position.leverage}x · {position.size.toLocaleString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Entry / Current</div>
-                    <div className="mt-1 text-sm">{formatNumber(position.entry, 4)} / {formatNumber(position.currentPrice, 4)}</div>
-                  </div>
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Stop / Target</div>
-                    <div className="mt-1 text-sm">{formatNumber(position.stopLoss, 4)} / {formatNumber(position.takeProfit, 4)}</div>
-                  </div>
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">PnL</div>
-                    <div className={`mt-1 text-sm font-semibold ${metricTone(position.unrealizedPnL) === 'up' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                      {formatCurrency(position.unrealizedPnL)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Opened</div>
-                    <div className="mt-1 text-sm">{new Date(position.openedAt).toLocaleDateString()}</div>
-                  </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <button
-                      className="border border-[var(--line)] bg-[color:var(--panel)] px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition hover:border-[var(--accent)] hover:bg-[color:var(--panel-3)] hover:text-[var(--accent)]"
-                      onClick={() => void appApi.closePaperTrade(position.id).then(refresh)}
-                      type="button"
-                    >
-                      Close
-                    </button>
-                    <Link
-                      className="border border-[var(--line)] bg-[color:var(--panel)] px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition hover:border-[var(--accent)] hover:bg-[color:var(--panel-3)] hover:text-[var(--accent)]"
-                      to={`/app/simulation?pair=${position.pairId}`}
-                    >
-                      Duplicate
-                    </Link>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <label className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                    Stop
-                    <input
-                      className="mt-2 w-full border border-[var(--line)] bg-[color:var(--panel)] px-3 py-2 text-sm outline-none transition hover:bg-[color:var(--panel-3)]"
-                      defaultValue={position.stopLoss}
-                      onBlur={(event) => void appApi.updatePaperTrade(position.id, { stopLoss: Number(event.target.value) }).then(refresh)}
-                    />
-                  </label>
-                  <label className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                    Target
-                    <input
-                      className="mt-2 w-full border border-[var(--line)] bg-[color:var(--panel)] px-3 py-2 text-sm outline-none transition hover:bg-[color:var(--panel-3)]"
-                      defaultValue={position.takeProfit}
-                      onBlur={(event) => void appApi.updatePaperTrade(position.id, { takeProfit: Number(event.target.value) }).then(refresh)}
-                    />
-                  </label>
-                </div>
-              </div>
-            ))}
+          <div className="p-4">
+            <PerformanceChart data={equitySeries} labelKey="label" valueKey="equity" />
           </div>
+        </section>
 
-          <SectionTitle eyebrow="Closed" title="History" />
-          <div className="grid gap-2 md:grid-cols-2">
-            {data.closedPositions.map((position) => (
-              <div className="bg-[color:var(--panel-2)] px-4 py-4" key={position.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-display text-[1.05rem] font-semibold tracking-[-0.03em]">{position.pairId.toUpperCase()}</div>
-                  <div className={`text-sm font-semibold ${metricTone(position.realizedPnL ?? 0) === 'up' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                    {formatCurrency(position.realizedPnL ?? 0)}
-                  </div>
-                </div>
-                <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                  {position.direction} · {position.leverage}x
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
-
-        <div className="space-y-6">
-          <Panel>
-            <SectionTitle eyebrow="Exposure" title="Currency concentration" />
-            <div className="space-y-3">
-              {data.exposure.map((item) => {
+        <aside className="space-y-4">
+          <section className="bg-[color:var(--panel)]">
+            <div className="bg-[color:var(--panel-2)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">
+              Exposure Concentration
+            </div>
+            <div className="p-4 space-y-4">
+              {data.exposure.slice(0, 5).map((item) => {
                 const width = Math.min(100, Math.abs(item.value) / 1500)
                 return (
-                  <div className="bg-[color:var(--panel-2)] px-4 py-3" key={item.code}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium">{item.code}</div>
-                      <div className={`text-sm font-semibold ${item.value >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{formatCurrency(item.value)}</div>
+                  <div key={item.code} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3 text-[11px] font-semibold">
+                      <span className="text-[var(--text)]">{item.code}</span>
+                      <span className={item.value >= 0 ? 'tabular-nums text-[var(--accent)]' : 'tabular-nums text-[var(--danger)]'}>{formatCurrency(item.value)}</span>
                     </div>
-                    <div className="mt-3 h-1.5 bg-[color:var(--panel-4)]">
-                      <div className="h-full bg-[linear-gradient(90deg,var(--accent),rgba(112,216,200,0.15))]" style={{ width: `${width}%` }} />
+                    <div className="h-1.5 bg-[color:var(--panel-3)]">
+                      <div className={item.value >= 0 ? 'h-full bg-[var(--accent)]' : 'h-full bg-[var(--warning)]'} style={{ width: `${width}%` }} />
                     </div>
                   </div>
                 )
               })}
             </div>
-          </Panel>
+          </section>
 
-          <Panel>
-            <SectionTitle eyebrow="Journal" title="Notes" />
-            <div className="space-y-3">
+          <section className="overflow-hidden bg-[color:var(--panel)]">
+            <div className="bg-[color:var(--panel-2)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">
+              Quick Execution
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-[color:var(--panel-2)] p-2">
+                  <div className="text-[9px] uppercase tracking-[0.14em] text-[var(--muted)]">Symbol</div>
+                  <div className="mt-1 text-sm font-bold text-[var(--text)]">{quickPair.symbol}</div>
+                </div>
+                <div className="bg-[color:var(--panel-2)] p-2">
+                  <div className="text-[9px] uppercase tracking-[0.14em] text-[var(--muted)]">Volume</div>
+                  <div className="mt-1 text-sm font-bold tabular-nums text-[var(--text)]">1.00 LOT</div>
+                </div>
+              </div>
+              <select
+                className="w-full bg-[color:var(--panel-2)] px-3 py-2 text-sm outline-none"
+                value={openPairId}
+                onChange={(event) => setOpenPairId(event.target.value)}
+              >
+                {seed.pairs.map((pair) => (
+                  <option key={pair.id} value={pair.id}>{pair.symbol}</option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void appApi.openPaperTrade({ ...appApi.buildSimulationFromPair(openPairId), direction: 'short' }).then(refresh)}
+                  className="border border-[color:rgba(227,128,120,0.3)] bg-[rgba(227,128,120,0.08)] py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--danger)]"
+                >
+                  Sell
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void appApi.openPaperTrade(appApi.buildSimulationFromPair(openPairId)).then(refresh)}
+                  className="border border-[color:rgba(105,211,192,0.3)] bg-[rgba(105,211,192,0.08)] py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--accent)]"
+                >
+                  Buy
+                </button>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="overflow-hidden bg-[color:var(--panel)]">
+          <div className="flex items-center justify-between bg-[color:var(--panel-2)] px-4 py-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">Active Portfolio Positions</span>
+            <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">count {data.openPositions.length}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[920px] text-left">
+              <thead className="bg-[color:var(--panel-4)] text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Asset</th>
+                  <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium">Lots</th>
+                  <th className="px-4 py-3 font-medium">Entry</th>
+                  <th className="px-4 py-3 font-medium">Current</th>
+                  <th className="px-4 py-3 font-medium">S / T</th>
+                  <th className="px-4 py-3 font-medium">Opened</th>
+                  <th className="px-4 py-3 text-right font-medium">PnL</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {data.openPositions.map((position) => {
+                  const pair = seed.pairs.find((item) => item.id === position.pairId)
+                  return (
+                    <tr key={position.id} className="border-t border-[color:rgba(141,164,179,0.08)]">
+                      <td className="px-4 py-3">
+                        <Link to={`/app/markets/${position.pairId}`} className="font-semibold text-[var(--accent)]">
+                          {pair?.symbol ?? position.pairId.toUpperCase()}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 uppercase text-[var(--muted)]">{position.direction}</td>
+                      <td className="px-4 py-3 tabular-nums">{formatNumber(position.size, 0)}</td>
+                      <td className="px-4 py-3 tabular-nums">{formatNumber(position.entry, 4)}</td>
+                      <td className="px-4 py-3 tabular-nums">{formatNumber(position.currentPrice, 4)}</td>
+                      <td className="px-4 py-3 tabular-nums">{formatNumber(position.stopLoss, 4)} / {formatNumber(position.takeProfit, 4)}</td>
+                      <td className="px-4 py-3 text-[var(--muted)]">{new Date(position.openedAt).toLocaleDateString()}</td>
+                      <td className={metricTone(position.unrealizedPnL) === 'up' ? 'px-4 py-3 text-right font-semibold text-[var(--accent)]' : 'px-4 py-3 text-right font-semibold text-[var(--danger)]'}>
+                        {formatCurrency(position.unrealizedPnL)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <Link to={`/app/simulation?pair=${position.pairId}`} className="bg-[color:var(--panel-2)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text)]">
+                            Duplicate
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => void appApi.closePaperTrade(position.id).then(refresh)}
+                            className="bg-[color:var(--panel-2)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--danger)]"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="overflow-hidden bg-[color:var(--panel)]">
+          <div className="bg-[color:var(--panel-2)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">
+            Order Activity
+          </div>
+          <div className="p-4 space-y-2">
+            {data.orders.slice(0, 8).map((order) => (
+              <div key={order.id} className="bg-[color:var(--panel-2)] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{order.action}</div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{order.pairId.toUpperCase()}</div>
+                </div>
+                <div className="mt-1 text-sm text-[var(--text)]">{order.detail}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
+        <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="overflow-hidden bg-[color:var(--panel)]">
+            <div className="bg-[color:var(--panel-2)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">
+              Closed Positions
+            </div>
+            <div className="grid gap-2 p-4 md:grid-cols-2">
+              {data.closedPositions.map((position) => {
+                const pair = seed.pairs.find((item) => item.id === position.pairId)
+                return (
+                  <div key={position.id} className="bg-[color:var(--panel-2)] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-[var(--text)]">{pair?.symbol ?? position.pairId.toUpperCase()}</div>
+                      <div className={metricTone(position.realizedPnL ?? 0) === 'up' ? 'text-sm font-semibold text-[var(--accent)]' : 'text-sm font-semibold text-[var(--danger)]'}>
+                        {formatCurrency(position.realizedPnL ?? 0)}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{position.direction} · {position.leverage}x</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="overflow-hidden bg-[color:var(--panel)]">
+            <div className="bg-[color:var(--panel-2)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">
+              Journal
+            </div>
+            <div className="p-4 space-y-3">
               <input
-                className="w-full border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3 outline-none transition hover:bg-[color:var(--panel-3)]"
+                className="w-full bg-[color:var(--panel-2)] px-4 py-3 outline-none"
                 placeholder="Title"
                 value={journalTitle}
                 onChange={(event) => setJournalTitle(event.target.value)}
               />
               <textarea
-                className="min-h-28 w-full border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3 outline-none transition hover:bg-[color:var(--panel-3)]"
-                placeholder="Note"
+                className="min-h-32 w-full bg-[color:var(--panel-2)] px-4 py-3 outline-none"
+                placeholder="Write a portfolio observation..."
                 value={journalBody}
                 onChange={(event) => setJournalBody(event.target.value)}
               />
               <button
-                className="border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2 text-[10px] uppercase tracking-[0.14em] transition hover:border-[var(--accent)] hover:bg-[color:var(--panel-3)] hover:text-[var(--accent)]"
+                type="button"
                 onClick={() =>
                   void appApi.addJournalEntry({ title: journalTitle, body: journalBody }).then(() => {
                     setJournalTitle('')
@@ -292,22 +290,42 @@ export const PortfolioPage = () => {
                     void refresh()
                   })
                 }
-                type="button"
+                className="bg-[var(--accent)] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--bg)]"
               >
-                Save note
+                Add Journal
               </button>
+              <div className="space-y-2">
+                {data.journals.map((journal) => (
+                  <div key={journal.id} className="bg-[color:var(--panel-2)] p-3">
+                    <div className="text-sm font-semibold text-[var(--text)]">{journal.title}</div>
+                    <div className="mt-2 text-xs leading-6 text-[var(--muted)]">{journal.body}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="mt-4 space-y-2">
-              {data.journals.map((journal) => (
-                <div className="bg-[color:var(--panel-2)] px-4 py-4" key={journal.id}>
-                  <div className="font-medium">{journal.title}</div>
-                  <div className="mt-2 text-sm text-[var(--muted)]">{journal.body}</div>
-                </div>
-              ))}
+          </div>
+        </section>
+
+        <section className="bg-[color:var(--panel)] p-4">
+          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Book Snapshot</div>
+          <div className="mt-4 grid gap-2">
+            <div className="bg-[color:var(--panel-2)] p-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Win Rate</div>
+              <div className="mt-2 text-lg font-bold tabular-nums text-[var(--text)]">
+                {data.closedPositions.length ? formatNumber((winCount / data.closedPositions.length) * 100, 0) : '0'}%
+              </div>
             </div>
-          </Panel>
-        </div>
+            <div className="bg-[color:var(--panel-2)] p-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Losses</div>
+              <div className="mt-2 text-lg font-bold tabular-nums text-[var(--danger)]">{lossCount}</div>
+            </div>
+            <div className="bg-[color:var(--panel-2)] p-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Margin Used</div>
+              <div className="mt-2 text-lg font-bold tabular-nums text-[var(--text)]">{formatCurrency(data.portfolio.marginUsed)}</div>
+            </div>
+          </div>
+        </section>
       </div>
-    </Page>
+    </div>
   )
 }

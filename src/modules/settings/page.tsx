@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LoadingPanel, Page, Panel, SectionTitle } from '../../components/ui/primitives'
+import { LoadingPanel } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
 import { appApi, authApi, getSeed } from '../../domain/services/mockApi'
 import { formatDateTime, title } from '../../lib/utils'
@@ -32,15 +32,6 @@ const MiniStat = ({ label, value }: { label: string; value: string }) => (
     <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">{label}</div>
     <div className="mt-2 text-[1rem] font-semibold tracking-[-0.02em] text-[var(--text)]">{value}</div>
   </div>
-)
-
-const SectionCard = ({ label, title: sectionTitle, detail, children }: { label: string; title: string; detail?: string; children: ReactNode }) => (
-  <Panel className="p-0">
-    <div className="border-b border-[var(--line)] bg-[color:var(--panel)] px-4 py-3">
-      <SectionTitle eyebrow={label} title={sectionTitle} detail={detail} />
-    </div>
-    <div className="p-4">{children}</div>
-  </Panel>
 )
 
 export const SettingsPage = () => {
@@ -80,7 +71,6 @@ export const SettingsPage = () => {
   if (!user) return <LoadingPanel label="Loading settings…" />
 
   const seed = getSeed()
-  const portfolio = seed.portfolios.find((item) => item.id === user.portfolioId)
   const savedSimulations = seed.simulations.filter((item) => item.userId === user.id).slice(0, 4)
   const linkedNotes = seed.notes
     .filter(
@@ -127,313 +117,280 @@ export const SettingsPage = () => {
   }
 
   return (
-    <Page
-      title="Settings"
-      actions={
-        <>
-          <PrimaryButton onClick={save} type="button">
-            Save
-          </PrimaryButton>
-          <PrimaryButton
-            onClick={async () => {
-              await authApi.logout()
-              await refreshUser()
-              navigate('/login')
-            }}
-            secondary
-            type="button"
-          >
-            Sign out
-          </PrimaryButton>
-        </>
-      }
-    >
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Panel className="p-0">
-          <div className="grid gap-px bg-[var(--line)] lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="bg-[color:var(--panel-2)] p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">Profile</div>
-                  <div className="mt-2 text-[2rem] font-semibold tracking-[-0.04em] text-[var(--text)]">{user.displayName}</div>
-                  <div className="mt-2 text-sm text-[var(--muted)]">{user.email}</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center rounded-[2px] border border-[var(--line)] bg-[color:var(--panel)] px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--muted)]">
-                    {title(user.role)}
-                  </span>
-                  <span className="inline-flex items-center rounded-[2px] border border-[var(--line)] bg-[color:var(--panel)] px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--muted)]">
-                    {user.locked ? 'Locked' : user.verified ? 'Verified' : 'Unverified'}
-                  </span>
-                  <span className="inline-flex items-center rounded-[2px] border border-[rgba(105,211,192,0.24)] bg-[rgba(105,211,192,0.08)] px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--accent)]">
-                    {title(user.analysisFocus)}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                <MiniStat label="Currency" value={accountCurrency} />
-                <MiniStat label="Dashboard" value={title(dashboardMode)} />
-                <MiniStat label="Theme" value={title(theme)} />
-                <MiniStat label="Density" value={title(density)} />
-              </div>
-            </div>
-            <div className="grid gap-px bg-[var(--line)] sm:grid-cols-2">
-              <MiniStat label="Portfolio" value={portfolio?.baseCurrency ?? 'USD'} />
-              <MiniStat label="Watchlist" value={`${user.favoritePairs.length + user.favoriteCurrencies.length}`} />
-              <MiniStat label="Notes" value={`${user.noteIds.length}`} />
-              <MiniStat label="Simulations" value={`${user.savedSimulationIds.length}`} />
-            </div>
+    <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <aside className="bg-[color:var(--panel)] py-4 lg:sticky lg:top-4 lg:self-start">
+        <div className="px-4 mb-6">
+          <div className="flex flex-col">
+            <span className="font-display font-bold text-[var(--text)] text-sm">{user.displayName}</span>
+            <span className="text-[11px] text-[var(--muted)] font-medium uppercase tracking-[0.12em]">{title(user.role)} tier</span>
+            <span className="text-[10px] text-[var(--muted)] mt-0.5">{accountCurrency} / {title(user.analysisFocus)}</span>
           </div>
-        </Panel>
-
-        <SectionCard label="Session" title="Controls">
-          <div className="grid gap-3">
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Persona</div>
-              <select className={fieldClass} value={personaId} onChange={(event) => setPersonaId(event.target.value)}>
-                {seed.users.filter((item) => !item.locked).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="grid gap-px bg-[var(--line)] sm:grid-cols-2">
-              <MiniStat label="Onboarding" value={user.onboardingCompleted ? 'Complete' : 'Pending'} />
-              <MiniStat label="Mock 2FA" value={mock2FAEnabled ? 'Enabled' : 'Off'} />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <PrimaryButton
-                onClick={async () => {
-                  await appApi.switchPersona(personaId)
-                  await refreshUser()
-                  navigate('/app/dashboard')
-                }}
-                secondary
-                type="button"
-              >
-                Switch
-              </PrimaryButton>
-              <PrimaryButton
-                onClick={async () => {
-                  await appApi.resetOnboarding()
-                  await refreshUser()
-                  navigate('/onboarding')
-                }}
-                secondary
-                type="button"
-              >
-                Reset onboarding
-              </PrimaryButton>
-              <PrimaryButton
-                onClick={async () => {
-                  await appApi.resetDemoState()
-                  await refreshUser()
-                  navigate('/login')
-                }}
-                secondary
-                type="button"
-              >
-                Reset demo
-              </PrimaryButton>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <SectionCard label="Workspace" title="Preferences">
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Dashboard mode</div>
-              <select className={fieldClass} value={dashboardMode} onChange={(event) => setDashboardMode(event.target.value as typeof dashboardMode)}>
-                <option value="compact">Compact</option>
-                <option value="research-heavy">Research Heavy</option>
-                <option value="simulation-heavy">Simulation Heavy</option>
-              </select>
-            </label>
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Default currency</div>
-              <select className={fieldClass} value={accountCurrency} onChange={(event) => setAccountCurrency(event.target.value)}>
-                {seed.currencies.map((currency) => (
-                  <option key={currency.code} value={currency.code}>
-                    {currency.code}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Theme</div>
-              <select className={fieldClass} value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}>
-                <option value="terminal">Terminal</option>
-                <option value="paper">Paper</option>
-              </select>
-            </label>
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Density</div>
-              <select className={fieldClass} value={density} onChange={(event) => setDensity(event.target.value as typeof density)}>
-                <option value="compact">Compact</option>
-                <option value="research">Research</option>
-              </select>
-            </label>
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Chart mode</div>
-              <select className={fieldClass} value={chartMode} onChange={(event) => setChartMode(event.target.value as typeof chartMode)}>
-                <option value="line">Line</option>
-                <option value="area">Area</option>
-                <option value="candlestick">Candlestick</option>
-              </select>
-            </label>
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Timeframe</div>
-              <select className={fieldClass} value={timeframe} onChange={(event) => setTimeframe(event.target.value as typeof timeframe)}>
-                <option value="1D">1D</option>
-                <option value="1W">1W</option>
-                <option value="1M">1M</option>
-                <option value="3M">3M</option>
-                <option value="6M">6M</option>
-                <option value="1Y">1Y</option>
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {['macro', 'technical', 'simulation', 'portfolio'].map((focus) => (
-              <span
-                className="inline-flex items-center rounded-[2px] border border-[var(--line)] bg-[color:var(--panel)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--muted)]"
-                key={focus}
-              >
-                {focus}
-              </span>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard label="Notifications" title="Defaults">
-          <div className="grid gap-3">
-            <ToggleRow label="Alerts" checked={alertsEnabled} onChange={setAlertsEnabled} />
-            <ToggleRow label="News" checked={newsEnabled} onChange={setNewsEnabled} />
-            <ToggleRow label="Events" checked={eventsEnabled} onChange={setEventsEnabled} />
-            <ToggleRow label="Mock 2FA" checked={mock2FAEnabled} onChange={setMock2FAEnabled} />
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Favorite currencies</div>
-              <input className={fieldClass} value={favoriteCurrencies} onChange={(event) => setFavoriteCurrencies(event.target.value)} />
-            </label>
-            <label className="block">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Favorite pairs</div>
-              <input className={fieldClass} value={favoritePairs} onChange={(event) => setFavoritePairs(event.target.value)} />
-            </label>
-          </div>
-        </SectionCard>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
-        <SectionCard label="Context" title="Saved state">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Currency set</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {favoriteCurrencyCards.map((currency) => (
-                  <Link
-                    className={compactButtonClass}
-                    key={currency.code}
-                    to={`/app/currencies/${currency.code}`}
-                  >
-                    {currency.code}
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Pair set</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {favoritePairCards.map((pair) => (
-                  <Link className={compactButtonClass} key={pair.id} to={`/app/markets/${pair.id}`}>
-                    {pair.symbol}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-px bg-[var(--line)] lg:grid-cols-2">
-            <div className="bg-[color:var(--panel-2)] px-4 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Simulations</div>
-              <div className="mt-3 space-y-2">
-                {savedSimulations.map((simulation) => (
-                  <Link
-                    className="flex items-center justify-between gap-3 border border-[var(--line)] bg-[color:var(--panel)] px-3 py-2 text-sm transition hover:bg-[color:var(--panel-3)]"
-                    key={simulation.id}
-                    to={`/app/simulation?simulation=${simulation.id}`}
-                  >
-                    <span>{simulation.pairId.toUpperCase()}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{formatDateTime(simulation.updatedAt)}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <div className="bg-[color:var(--panel-2)] px-4 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Notes</div>
-              <div className="mt-3 space-y-2">
-                {linkedNotes.map((note) => (
-                  <Link
-                    className="block border border-[var(--line)] bg-[color:var(--panel)] px-3 py-2 text-sm transition hover:bg-[color:var(--panel-3)]"
-                    key={note.id}
-                    to="/app/notes"
-                  >
-                    <div className="font-medium text-[var(--text)]">{note.title}</div>
-                    <div className="mt-1 text-xs text-[var(--muted)]">{title(note.template)}</div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard label="Recovery" title="Storage">
-          <div className="grid gap-px bg-[var(--line)] sm:grid-cols-2">
-            <MiniStat label="Persona" value={user.displayName} />
-            <MiniStat label="Portfolios" value={seed.portfolios.length.toString()} />
-            <MiniStat label="Visited pairs" value={seed.pairs.length.toString()} />
-            <MiniStat label="Saved notes" value={seed.notes.length.toString()} />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <PrimaryButton
-              onClick={async () => {
-                await appApi.switchPersona(personaId)
-                await refreshUser()
-                navigate('/app/dashboard')
-              }}
-              secondary
+        </div>
+        <nav className="flex flex-col gap-0.5">
+          {[
+            'Profile',
+            'Currency',
+            'Persona',
+            'Theme',
+            'Density',
+            'Charts',
+            'Favorite Currencies',
+            'Pairs',
+            'Alerts',
+            '2FA',
+            'Onboarding',
+            'Reset',
+          ].map((item) => (
+            <button
+              key={item}
               type="button"
+              className={item === 'Theme' ? 'flex items-center gap-3 px-4 py-2 text-[12px] text-[var(--accent)] font-bold border-l-2 border-[var(--accent)] bg-[color:var(--panel-2)] transition-all' : 'flex items-center gap-3 px-4 py-2 text-[12px] font-medium text-[var(--muted)] hover:text-[var(--text)] hover:bg-[color:var(--panel-2)] transition-all'}
             >
-              Apply persona
-            </PrimaryButton>
+              {item}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="font-display font-extrabold text-2xl tracking-[-0.04em] text-[var(--text)]">Settings</h1>
+            <p className="text-sm text-[var(--muted)] max-w-2xl">Manage workspace preferences, visualization defaults, persona controls, and local security behavior for the Sovereign environment.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <PrimaryButton onClick={save} type="button">Save</PrimaryButton>
             <PrimaryButton
               onClick={async () => {
-                await appApi.resetOnboarding()
-                await refreshUser()
-                navigate('/onboarding')
-              }}
-              secondary
-              type="button"
-            >
-              Reopen onboarding
-            </PrimaryButton>
-            <PrimaryButton
-              onClick={async () => {
-                await appApi.resetDemoState()
+                await authApi.logout()
                 await refreshUser()
                 navigate('/login')
               }}
               secondary
               type="button"
             >
-              Clear demo data
+              Sign out
             </PrimaryButton>
           </div>
-        </SectionCard>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="bg-[color:var(--panel)] p-5 border-l-2 border-[var(--accent)]">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Visual Theme</span>
+              <span className="text-[var(--accent)] text-sm">Theme</span>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: 'Graphite Dark', value: 'terminal' as const, active: theme === 'terminal' },
+                { label: 'Paper Light', value: 'paper' as const, active: theme === 'paper' },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => setTheme(item.value)}
+                  type="button"
+                  className={item.active ? 'flex w-full items-center justify-between p-2 bg-[color:var(--panel-2)] border-b border-[color:rgba(141,164,179,0.1)] text-[var(--text)]' : 'flex w-full items-center justify-between p-2 text-[var(--muted)] hover:bg-[color:var(--panel-2)] transition-colors'}
+                >
+                  <span className="text-xs">{item.label}</span>
+                  {item.active ? <span className="text-[var(--accent)] text-sm">●</span> : null}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-[color:var(--panel)] p-5">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Interface Density</span>
+              <span className="text-[var(--muted)] text-sm">Density</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Compact', value: 'compact' as const },
+                { label: 'Research', value: 'research' as const },
+                { label: 'Dense', value: 'compact' as const },
+              ].map((item, index) => (
+                <button
+                  key={`${item.label}-${index}`}
+                  onClick={() => setDensity(item.value)}
+                  type="button"
+                  className={density === item.value && index < 2 ? 'flex flex-col items-center gap-2 p-3 bg-[rgba(105,211,192,0.12)] border border-[var(--accent)] transition-colors' : 'flex flex-col items-center gap-2 p-3 bg-[color:var(--panel-2)] border border-[color:rgba(141,164,179,0.12)] hover:border-[rgba(105,211,192,0.35)] transition-colors'}
+                >
+                  <span className={density === item.value && index < 2 ? 'text-[11px] text-[var(--accent)] font-bold' : 'text-[11px] text-[var(--muted)]'}>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <section className="bg-[color:var(--panel)] p-5">
+          <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-[var(--text)]">
+            <span className="w-1 h-4 bg-[var(--warning)]" />
+            Chart Defaults & Execution
+          </h2>
+          <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+            <div className="space-y-4">
+              <label className="group block">
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em] block mb-1">Base Currency Preference</div>
+                <select className={fieldClass} value={accountCurrency} onChange={(event) => setAccountCurrency(event.target.value)}>
+                  {seed.currencies.map((currency) => (
+                    <option key={currency.code} value={currency.code}>{currency.code} - {currency.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="group block">
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em] block mb-1">Dashboard Mode</div>
+                <select className={fieldClass} value={dashboardMode} onChange={(event) => setDashboardMode(event.target.value as typeof dashboardMode)}>
+                  <option value="compact">Compact</option>
+                  <option value="research-heavy">Research Heavy</option>
+                  <option value="simulation-heavy">Simulation Heavy</option>
+                </select>
+              </label>
+              <label className="group block">
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em] block mb-1">Chart Mode</div>
+                <select className={fieldClass} value={chartMode} onChange={(event) => setChartMode(event.target.value as typeof chartMode)}>
+                  <option value="line">Line</option>
+                  <option value="area">Area</option>
+                  <option value="candlestick">Candlestick</option>
+                </select>
+              </label>
+              <label className="group block">
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em] block mb-1">Timeframe</div>
+                <select className={fieldClass} value={timeframe} onChange={(event) => setTimeframe(event.target.value as typeof timeframe)}>
+                  <option value="1D">1D</option>
+                  <option value="1W">1W</option>
+                  <option value="1M">1M</option>
+                  <option value="3M">3M</option>
+                  <option value="6M">6M</option>
+                  <option value="1Y">1Y</option>
+                </select>
+              </label>
+            </div>
+            <div className="space-y-4">
+              <ToggleRow label="Alerts" checked={alertsEnabled} onChange={setAlertsEnabled} />
+              <ToggleRow label="News" checked={newsEnabled} onChange={setNewsEnabled} />
+              <ToggleRow label="Events" checked={eventsEnabled} onChange={setEventsEnabled} />
+              <ToggleRow label="Mock 2FA" checked={mock2FAEnabled} onChange={setMock2FAEnabled} />
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="bg-[color:var(--panel)] p-5">
+            <h2 className="text-sm font-bold mb-4 text-[var(--text)]">Workspace Sets</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em] mb-1">Favorite currencies</div>
+                <input className={fieldClass} value={favoriteCurrencies} onChange={(event) => setFavoriteCurrencies(event.target.value)} />
+              </label>
+              <label className="block">
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em] mb-1">Favorite pairs</div>
+                <input className={fieldClass} value={favoritePairs} onChange={(event) => setFavoritePairs(event.target.value)} />
+              </label>
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em]">Currency set</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {favoriteCurrencyCards.map((currency) => (
+                    <Link className={compactButtonClass} key={currency.code} to={`/app/currencies/${currency.code}`}>{currency.code}</Link>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em]">Pair set</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {favoritePairCards.map((pair) => (
+                    <Link className={compactButtonClass} key={pair.id} to={`/app/markets/${pair.id}`}>{pair.symbol}</Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-[rgba(147,0,10,0.05)] p-5 border border-[rgba(227,128,120,0.12)]">
+            <h2 className="text-sm font-bold text-[var(--danger)] mb-2 flex items-center gap-2">
+              System Integrity
+            </h2>
+            <p className="text-sm text-[var(--muted)]">Manage persona switching, onboarding recovery, and local demo reset operations.</p>
+            <div className="mt-4 grid gap-3">
+              <label className="block">
+                <div className="text-[10px] text-[var(--muted)] uppercase font-bold tracking-[0.14em]">Persona</div>
+                <select className={fieldClass} value={personaId} onChange={(event) => setPersonaId(event.target.value)}>
+                  {seed.users.filter((item) => !item.locked).map((item) => (
+                    <option key={item.id} value={item.id}>{item.displayName}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <MiniStat label="Onboarding" value={user.onboardingCompleted ? 'Complete' : 'Pending'} />
+                <MiniStat label="2FA" value={mock2FAEnabled ? 'Enabled' : 'Off'} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <PrimaryButton
+                  onClick={async () => {
+                    await appApi.switchPersona(personaId)
+                    await refreshUser()
+                    navigate('/app/dashboard')
+                  }}
+                  secondary
+                  type="button"
+                >
+                  Apply persona
+                </PrimaryButton>
+                <PrimaryButton
+                  onClick={async () => {
+                    await appApi.resetOnboarding()
+                    await refreshUser()
+                    navigate('/onboarding')
+                  }}
+                  secondary
+                  type="button"
+                >
+                  Reopen onboarding
+                </PrimaryButton>
+                <PrimaryButton
+                  onClick={async () => {
+                    await appApi.resetDemoState()
+                    await refreshUser()
+                    navigate('/login')
+                  }}
+                  secondary
+                  type="button"
+                >
+                  Clear demo data
+                </PrimaryButton>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="bg-[color:var(--panel)] p-5">
+            <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.14em] font-bold">Simulations</div>
+            <div className="mt-3 space-y-2">
+              {savedSimulations.map((simulation) => (
+                <Link className="flex items-center justify-between gap-3 bg-[color:var(--panel-2)] px-3 py-2 text-sm transition hover:bg-[color:var(--panel-3)]" key={simulation.id} to={`/app/simulation?simulation=${simulation.id}`}>
+                  <span>{simulation.pairId.toUpperCase()}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{formatDateTime(simulation.updatedAt)}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-[color:var(--panel)] p-5">
+            <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.14em] font-bold">Notes</div>
+            <div className="mt-3 space-y-2">
+              {linkedNotes.map((note) => (
+                <Link className="block bg-[color:var(--panel-2)] px-3 py-2 text-sm transition hover:bg-[color:var(--panel-3)]" key={note.id} to="/app/notes">
+                  <div className="font-medium text-[var(--text)]">{note.title}</div>
+                  <div className="mt-1 text-xs text-[var(--muted)]">{title(note.template)}</div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
-    </Page>
+    </div>
   )
 }

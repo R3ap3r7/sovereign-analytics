@@ -15,6 +15,19 @@ import {
 } from 'recharts'
 import type { Forecast, PriceSeries } from '../../domain/types'
 
+const chartTooltipProps = {
+  contentStyle: {
+    backgroundColor: 'rgba(10, 16, 22, 0.96)',
+    border: '1px solid rgba(141, 164, 179, 0.16)',
+    borderRadius: '4px',
+    color: '#edf4f7',
+    boxShadow: '0 20px 80px rgba(3, 7, 11, 0.48)',
+  },
+  itemStyle: { color: '#edf4f7', fontSize: 11 },
+  labelStyle: { color: '#8ea2af', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' },
+  cursor: { stroke: 'rgba(105, 211, 192, 0.35)', strokeWidth: 1 },
+}
+
 const useChartSize = (height: number) => {
   const ref = useRef<HTMLDivElement | null>(null)
   const [width, setWidth] = useState(0)
@@ -65,7 +78,7 @@ export const PriceChart = ({
           <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
           <XAxis dataKey="label" tick={{ fill: '#93a59a', fontSize: 10 }} />
           <YAxis tick={{ fill: '#93a59a', fontSize: 10 }} domain={['auto', 'auto']} />
-          <Tooltip />
+          <Tooltip {...chartTooltipProps} />
           <Legend />
           {chartMode === 'area' ? <Area dataKey="value" fill="rgba(139,196,168,0.18)" name="Price" stroke="#8bc4a8" strokeWidth={2} type="monotone" /> : null}
           {chartMode === 'line' ? <Line dataKey="value" name="Price" dot={false} stroke="#8bc4a8" strokeWidth={2} /> : null}
@@ -100,7 +113,7 @@ export const StrengthChart = ({ data }: { data: Array<{ code: string; strengthSc
         <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
         <XAxis dataKey="code" tick={{ fill: '#93a59a' }} />
         <YAxis tick={{ fill: '#93a59a' }} />
-        <Tooltip />
+        <Tooltip {...chartTooltipProps} />
         <Bar dataKey="strengthScore" fill="#8bc4a8" radius={[8, 8, 0, 0]} />
       </BarChart>
       ) : null}
@@ -123,7 +136,7 @@ export const ForecastChart = ({ forecast }: { forecast: Forecast }) => {
           <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis dataKey="horizon" tick={{ fill: '#93a59a' }} />
           <YAxis tick={{ fill: '#93a59a' }} domain={['auto', 'auto']} />
-          <Tooltip />
+          <Tooltip {...chartTooltipProps} />
           <Area dataKey="optimistic" stroke="#8bc4a8" fill="rgba(139,196,168,0.22)" />
           <Area dataKey="pessimistic" stroke="#e38078" fill="rgba(227,128,120,0.12)" />
           <Line type="monotone" dataKey="base" stroke="#eff4ee" strokeWidth={2} dot={{ r: 3 }} />
@@ -150,7 +163,7 @@ export const PerformanceChart = ({
           <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis dataKey={labelKey} tick={{ fill: '#93a59a', fontSize: 10 }} />
           <YAxis tick={{ fill: '#93a59a', fontSize: 10 }} />
-          <Tooltip />
+          <Tooltip {...chartTooltipProps} />
           <Line dataKey={valueKey} dot={false} stroke="#8bc4a8" strokeWidth={2} />
         </LineChart>
       ) : null}

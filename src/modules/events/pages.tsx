@@ -1,4 +1,4 @@
-import { type MouseEventHandler, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge, LoadingPanel, Page, Panel, Stat } from '../../components/ui/primitives'
 import { appApi } from '../../domain/services/mockApi'
@@ -45,30 +45,13 @@ const MiniPill = ({ children, tone = 'default' }: { children: ReactNode; tone?: 
   </span>
 )
 
-const CompactButton = ({
-  children,
-  onClick,
-  type = 'button',
-}: {
-  children: ReactNode
-  onClick?: MouseEventHandler<HTMLButtonElement>
-  type?: 'button' | 'submit'
-}) => (
-  <button
-    className="inline-flex items-center rounded-[2px] border border-[var(--line)] bg-[color:var(--panel-4)] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text)] transition hover:border-[rgba(105,211,192,0.42)] hover:bg-[color:var(--panel-3)] hover:text-[var(--accent)]"
-    onClick={onClick}
-    type={type}
-  >
-    {children}
-  </button>
-)
-
 export const EventsPage = () => {
   const { data, loading } = useAsyncResource(() => Promise.all([appApi.listEvents(), appApi.listNews()]).then(([events, news]) => ({ events, news })), [])
   const [impact, setImpact] = useState('all')
   const [currency, setCurrency] = useState('all')
-  const [region, setRegion] = useState('all')
+  const [region] = useState('all')
   const [type, setType] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
 
   const filteredEvents = useMemo(
@@ -80,12 +63,18 @@ export const EventsPage = () => {
         .filter((event) => (impact === 'all' ? true : event.impact === impact))
         .filter((event) => (currency === 'all' ? true : event.currencyCodes.includes(currency)))
         .filter((event) => (region === 'all' ? true : event.region === region))
-        .filter((event) => (type === 'all' ? true : event.type === type)),
-    [data, impact, currency, region, type],
+        .filter((event) => (type === 'all' ? true : event.type === type))
+        .filter((event) => (searchQuery ? `${event.title} ${event.region} ${event.type} ${event.currencyCodes.join(' ')}`.toLowerCase().includes(searchQuery.toLowerCase()) : true)),
+    [data, impact, currency, region, type, searchQuery],
   )
   const filteredNews = useMemo(
-    () => (!data ? [] : data.news.filter((item) => (currency === 'all' ? true : item.currencyCodes.includes(currency)))),
-    [data, currency],
+    () =>
+      !data
+        ? []
+        : data.news
+          .filter((item) => (currency === 'all' ? true : item.currencyCodes.includes(currency)))
+          .filter((item) => (searchQuery ? `${item.headline} ${item.explanation} ${item.whyItMatters} ${item.currencyCodes.join(' ')} ${item.pairIds.join(' ')}`.toLowerCase().includes(searchQuery.toLowerCase()) : true)),
+    [data, currency, searchQuery],
   )
 
   useEffect(() => {
@@ -105,230 +94,248 @@ export const EventsPage = () => {
   const topNarrative = [...filteredEvents]
     .sort((a, b) => b.urgency - a.urgency)
     .slice(0, 3)
+  const sentimentSummary = filteredNews.reduce(
+    (acc, item) => {
+      acc[item.sentiment] += 1
+      return acc
+    },
+    { bullish: 0, bearish: 0, neutral: 0 },
+  )
+  const priorityPairs = selectedEvent?.pairIds.slice(0, 3) ?? []
+  const formatPairCode = (pairId: string) => pairId.replace('-', '/').toUpperCase()
 
   return (
-    <Page title="News & Events">
+      <div className="space-y-4">
+        <nav className="flex flex-wrap items-center gap-1 bg-[color:var(--panel)] p-1">
+          {[
+            { label: 'All', onClick: () => { setImpact('all'); setType('all') }, active: impact === 'all' && type === 'all' },
+            { label: 'High Impact', onClick: () => setImpact(impact === 'high' ? 'all' : 'high'), active: impact === 'high' },
+            { label: 'Central Banks', onClick: () => setType(type === 'speech' || type === 'rate decision' ? 'all' : 'speech'), active: type === 'speech' || type === 'rate decision' },
+            { label: 'Economic Data', onClick: () => setType(type === 'CPI' ? 'all' : 'CPI'), active: type === 'CPI' },
+            { label: 'Geopolitics', onClick: () => setType(type === 'geopolitical incident' ? 'all' : 'geopolitical incident'), active: type === 'geopolitical incident' },
+          ].map((item) => (
+            <button
+              key={item.label}
+              className={item.active ? 'px-4 py-1.5 text-xs font-semibold bg-[color:var(--panel-3)] text-[var(--accent)] transition-colors' : 'px-4 py-1.5 text-xs font-semibold text-[var(--muted)] transition-colors hover:bg-[color:var(--panel-2)] hover:text-[var(--text)]'}
+              onClick={item.onClick}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+          <div className="ml-auto flex items-center px-3 gap-2 bg-[color:var(--panel-4)] border-b border-[color:rgba(141,164,179,0.2)] w-full sm:w-64">
+            <span className="text-sm text-[var(--muted)]">⌕</span>
+            <input className="bg-transparent border-none text-xs w-full focus:ring-0 placeholder:text-[var(--muted)] py-1.5 outline-none" placeholder="Search terminal..." type="text" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+          </div>
+        </nav>
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <div className="space-y-4">
-          <Panel className="overflow-hidden p-0">
-            <div className="grid gap-px bg-[var(--line)] xl:grid-cols-[1.25fr_0.75fr]">
-              <div className="bg-[color:var(--panel-2)] px-5 py-5">
-                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">Macro board</div>
-                <div className="mt-3 flex flex-wrap items-end gap-4">
-                  <h2 className="font-display text-[2rem] font-semibold tracking-[-0.05em] text-[var(--text)]">{selectedEvent?.title ?? 'Event focus'}</h2>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                    {filteredEvents.length} events · {filteredNews.length} stories · {filteredEvents.filter((event) => event.impact === 'high').length} high impact
-                  </div>
+          <section className="relative overflow-hidden flex bg-[color:var(--panel)] min-h-72">
+            <div className="flex-1 p-6 flex flex-col justify-between relative z-10 bg-gradient-to-r from-[color:var(--panel)] via-[color:var(--panel)] to-transparent">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedEvent ? <Badge tone={toneForImpact(selectedEvent.impact)}>{selectedEvent.impact}</Badge> : null}
+                  <MiniPill tone="warning">{filteredEvents.filter((event) => event.impact === 'high').length} high impact</MiniPill>
+                  <MiniPill>{filteredNews.length} stories</MiniPill>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {topNarrative.map((event) => (
-                    <MiniPill key={event.id} tone={toneForImpact(event.impact)}>
-                      {event.currencyCodes[0]} {event.type}
-                    </MiniPill>
+                <h2 className="max-w-4xl font-display text-[2.25rem] font-semibold leading-none tracking-[-0.05em] text-[var(--text)]">
+                  {selectedEvent?.title ?? 'Macro terminal'}
+                </h2>
+                <p className="max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                  {selectedEvent?.scenarioNarrative ?? 'No event selected.'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedEvent?.currencyCodes.map((code) => (
+                    <MiniPill key={code}>{code}</MiniPill>
+                  ))}
+                  {priorityPairs.map((pairId) => (
+                    <MiniPill key={pairId} tone="accent">{formatPairCode(pairId)}</MiniPill>
                   ))}
                 </div>
-                <div className="mt-4 text-sm leading-6 text-[var(--muted)]">
-                  {selectedEvent ? selectedEvent.scenarioNarrative : 'No event selected.'}
-                </div>
               </div>
-              <div className="grid gap-px bg-[var(--line)] sm:grid-cols-3 xl:grid-cols-1">
-                <div className="bg-[color:var(--panel)] px-4 py-4">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Urgency</div>
-                  <div className="mt-2 text-lg font-semibold text-[var(--text)]">{selectedEvent ? formatNumber(selectedEvent.urgency, 0) : '0'}</div>
+
+              <div className="flex flex-wrap items-end gap-6">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase font-bold tracking-[0.12em] text-[var(--muted)]">Event urgency</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-display font-bold text-[var(--warning)]">{selectedEvent ? formatNumber(selectedEvent.urgency, 0) : '0'}</span>
+                    <span className="text-xs text-[var(--muted)]">{selectedEvent ? formatDateTime(selectedEvent.scheduledAt) : 'No time'}</span>
+                  </div>
                 </div>
-                <div className="bg-[color:var(--panel)] px-4 py-4">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Currency</div>
-                  <div className="mt-2 text-lg font-semibold text-[var(--text)]">{selectedEvent?.currencyCodes.join(' / ') ?? 'None'}</div>
-                </div>
-                <div className="bg-[color:var(--panel)] px-4 py-4">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Window</div>
-                  <div className="mt-2 text-sm leading-6 text-[var(--text)]">{selectedEvent ? formatDateTime(selectedEvent.scheduledAt) : 'None'}</div>
+                <div className="flex h-12 items-end gap-1">
+                  {Array.from({ length: 8 }, (_, index) => {
+                    const level = selectedEvent ? Math.max(16, Math.min(100, (selectedEvent.urgency / 100) * 100 - index * 6)) : 16
+                    return <div className="w-2 bg-[rgba(227,128,120,0.18)]" key={index} style={{ height: `${level}%` }} />
+                  })}
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-px bg-[var(--line)] lg:grid-cols-4">
-              <div className="bg-[color:var(--panel)] px-4 py-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Impact</div>
-                <select className="mt-3 w-full border border-[var(--line)] bg-[color:var(--panel-4)] px-3 py-2 text-xs uppercase tracking-[0.12em] text-[var(--text)] outline-none" value={impact} onChange={(event) => setImpact(event.target.value)}>
-                  <option value="all">All</option>
+            <div className="hidden w-[28%] bg-[linear-gradient(180deg,rgba(31,163,138,0.08),transparent)] xl:block">
+              <div className="flex h-full flex-col justify-end p-6">
+                <div className="grid gap-2">
+                  <div className="bg-[color:var(--panel-2)] px-4 py-3">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Region</div>
+                    <div className="mt-2 text-sm font-semibold text-[var(--text)]">{selectedEvent?.region ?? 'Global'}</div>
+                  </div>
+                  <div className="bg-[color:var(--panel-2)] px-4 py-3">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Forecast / Prior</div>
+                    <div className="mt-2 text-sm font-semibold text-[var(--text)]">{selectedEvent ? `${selectedEvent.forecast} / ${selectedEvent.prior}` : 'n/a'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-[color:var(--panel)] p-1 flex flex-col gap-1">
+            <div className="px-3 py-2 flex justify-between items-center border-b border-[color:rgba(141,164,179,0.08)]">
+              <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--text)] flex items-center gap-2">
+                <span className="w-2 h-2 bg-[var(--accent)] rounded-full" /> Live News Stream
+              </h3>
+              <span className="text-[10px] text-[var(--muted)] uppercase tracking-[0.12em]">Auto refresh enabled</span>
+            </div>
+            <div className="space-y-1">
+              {filteredNews.slice(0, 6).map((item) => (
+                <div className="flex gap-4 p-3 transition-colors items-start border-l-2 hover:bg-[color:var(--panel-2)]" key={item.id} style={{ borderLeftColor: item.sentiment === 'bullish' ? 'var(--accent)' : item.sentiment === 'bearish' ? 'var(--danger)' : 'rgba(141,164,179,0.16)' }}>
+                  <span className="text-[10px] font-mono text-[var(--muted)] w-12 pt-0.5">{formatDateTime(item.timestamp)}</span>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-[var(--text)]">{item.headline}</span>
+                      <span className="px-1.5 py-0.5 bg-[color:var(--panel-3)] text-[var(--muted)] text-[9px] font-bold uppercase">{item.source}</span>
+                    </div>
+                    <p className="text-[11px] text-[var(--muted)] leading-relaxed">{item.explanation}</p>
+                    <p className="text-[11px] text-[var(--text)] leading-relaxed">{item.whyItMatters}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={item.sentiment === 'bullish' ? 'text-[10px] font-bold text-[var(--accent)] uppercase' : item.sentiment === 'bearish' ? 'text-[10px] font-bold text-[var(--danger)] uppercase' : 'text-[10px] font-bold text-[var(--muted)] uppercase'}>
+                      {item.sentiment}
+                    </span>
+                    <span className="text-[9px] text-[var(--muted)]">{item.pairIds.slice(0, 2).map(formatPairCode).join(', ')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-[color:var(--panel)] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[color:rgba(141,164,179,0.08)] px-4 py-3">
+              <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--text)]">Economic Calendar</h3>
+              <div className="flex items-center gap-2">
+                <select className="border-none bg-[color:var(--panel-4)] px-3 py-2 text-[11px] uppercase tracking-[0.1em] text-[var(--text)] outline-none" value={impact} onChange={(event) => setImpact(event.target.value)}>
+                  <option value="all">All impact</option>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
                 </select>
-              </div>
-              <div className="bg-[color:var(--panel)] px-4 py-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Currency</div>
-                <select className="mt-3 w-full border border-[var(--line)] bg-[color:var(--panel-4)] px-3 py-2 text-xs uppercase tracking-[0.12em] text-[var(--text)] outline-none" value={currency} onChange={(event) => setCurrency(event.target.value)}>
-                  <option value="all">All</option>
+                <select className="border-none bg-[color:var(--panel-4)] px-3 py-2 text-[11px] uppercase tracking-[0.1em] text-[var(--text)] outline-none" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+                  <option value="all">All currencies</option>
                   {['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CAD', 'CHF', 'NZD', 'INR', 'CNY'].map((code) => (
-                    <option key={code} value={code}>
-                      {code}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="bg-[color:var(--panel)] px-4 py-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Region</div>
-                <select className="mt-3 w-full border border-[var(--line)] bg-[color:var(--panel-4)] px-3 py-2 text-xs uppercase tracking-[0.12em] text-[var(--text)] outline-none" value={region} onChange={(event) => setRegion(event.target.value)}>
-                  <option value="all">All</option>
-                  {Array.from(new Set(data.events.map((event) => event.region))).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="bg-[color:var(--panel)] px-4 py-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Type</div>
-                <select className="mt-3 w-full border border-[var(--line)] bg-[color:var(--panel-4)] px-3 py-2 text-xs uppercase tracking-[0.12em] text-[var(--text)] outline-none" value={type} onChange={(event) => setType(event.target.value)}>
-                  <option value="all">All</option>
-                  {Array.from(new Set(data.events.map((event) => event.type))).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
+                    <option key={code} value={code}>{code}</option>
                   ))}
                 </select>
               </div>
             </div>
-          </Panel>
-
-          <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-            <Panel className="overflow-hidden p-0">
-              <div className="flex items-center justify-between border-b border-[var(--line)] bg-[color:var(--panel)] px-4 py-3">
-                <CompactSection label="Calendar" title="Economic events" detail={selectedEvent?.region} />
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="bg-[color:var(--panel-2)] font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Time</th>
-                      <th className="px-4 py-3 text-left">Event</th>
-                      <th className="px-4 py-3 text-left">Curr.</th>
-                      <th className="px-4 py-3 text-left">Impact</th>
-                      <th className="px-4 py-3 text-left">Urgency</th>
-                      <th className="px-4 py-3 text-left">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEvents.map((event) => {
-                      const active = event.id === selectedEvent?.id
-                      return (
-                        <tr
-                          className={[
-                            'cursor-pointer border-t border-[var(--line)] transition-colors',
-                            active ? 'bg-[color:var(--panel-3)]' : 'bg-[color:var(--panel-2)]/70 hover:bg-[color:var(--panel-3)]',
-                          ].join(' ')}
-                          key={event.id}
-                          onClick={() => setSelectedEventId(event.id)}
-                        >
-                          <td className="px-4 py-4 align-top text-xs text-[var(--muted)]">{formatDateTime(event.scheduledAt)}</td>
-                          <td className="px-4 py-4 align-top">
-                            <div className="font-medium text-[var(--text)]">{event.title}</div>
-                            <div className="mt-1 text-xs text-[var(--muted)]">{event.region}</div>
-                          </td>
-                          <td className="px-4 py-4 align-top">
-                            <div className="flex flex-wrap gap-1.5">
-                              {event.currencyCodes.slice(0, 3).map((code) => (
-                                <span key={code} className="rounded-[2px] border border-[var(--line)] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                                  {code}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 align-top">
-                            <Badge tone={toneForImpact(event.impact)}>{event.impact}</Badge>
-                          </td>
-                          <td className="px-4 py-4 align-top">
-                            <div className="text-sm font-medium text-[var(--text)]">{formatNumber(event.urgency, 0)}</div>
-                            <div className="mt-2 h-1.5 w-24 bg-[color:var(--panel-4)]">
-                              <div className="h-full bg-[linear-gradient(90deg,var(--accent),var(--warning))]" style={{ width: `${Math.min(event.urgency, 100)}%` }} />
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 align-top">
-                            <div className="flex flex-wrap gap-2">
-                              <Link
-                                className="inline-flex items-center rounded-[2px] border border-[var(--line)] bg-[color:var(--panel-4)] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text)] transition hover:border-[rgba(105,211,192,0.42)] hover:text-[var(--accent)]"
-                                to={`/app/events/${event.id}`}
-                              >
-                                Open
-                              </Link>
-                              <CompactButton
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                }}
-                              >
-                                Focus
-                              </CompactButton>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Panel>
-
-            <div className="space-y-4">
-              <Panel>
-                <CompactSection
-                  label="Inspector"
-                  title={selectedEvent ? selectedEvent.title : 'Event'}
-                  detail={selectedEvent ? selectedEvent.scenarioNarrative : undefined}
-                />
-                {selectedEvent ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <Stat label="Region" value={selectedEvent.region} />
-                    <Stat label="Time" value={formatDateTime(selectedEvent.scheduledAt)} />
-                    <Stat label="Impact" value={selectedEvent.impact} />
-                    <Stat label="Urgency" value={formatNumber(selectedEvent.urgency, 0)} />
-                  </div>
-                ) : (
-                  <div className="mt-4 text-sm text-[var(--muted)]">No event selected.</div>
-                )}
-              </Panel>
-
-              <Panel>
-                <CompactSection label="Pairs" title="Linked pairs" />
-                <div className="mt-4 space-y-2">
-                  {selectedEvent && selectedEvent.pairIds.length ? (
-                    selectedEvent.pairIds.slice(0, 4).map((pairId) => (
-                      <div className="flex items-center justify-between gap-3 border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" key={pairId}>
-                        <div className="font-medium text-[var(--text)]">{pairId.toUpperCase()}</div>
-                        <div className="flex flex-wrap gap-2">
-                          <Link className="text-[var(--accent)] transition hover:text-[var(--text)]" to={`/app/markets/${pairId}`}>
-                            Open
-                          </Link>
-                          <Link className="text-[var(--accent)] transition hover:text-[var(--text)]" to={`/app/simulation?pair=${pairId}`}>
-                            Sim
-                          </Link>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3 text-sm text-[var(--muted)]">No pair links.</div>
-                  )}
-                </div>
-              </Panel>
-
-              <Panel>
-                <CompactSection label="Currencies" title="Linked currencies" />
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {selectedEvent?.currencyCodes.map((code) => (
-                    <Link key={code} to={`/app/currencies/${code}`}>
-                      <MiniPill tone="default">{code}</MiniPill>
-                    </Link>
-                  ))}
-                </div>
-              </Panel>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-[color:var(--panel-2)] font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Time</th>
+                    <th className="px-4 py-3 text-left">Curr.</th>
+                    <th className="px-4 py-3 text-left">Event</th>
+                    <th className="px-4 py-3 text-left">Region</th>
+                    <th className="px-4 py-3 text-left">Impact</th>
+                    <th className="px-4 py-3 text-right">Actual</th>
+                    <th className="px-4 py-3 text-right">Forecast</th>
+                    <th className="px-4 py-3 text-right">Previous</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEvents.map((event) => {
+                    const active = event.id === selectedEvent?.id
+                    return (
+                      <tr
+                        className={[
+                          'cursor-pointer border-t border-[var(--line)] transition-colors',
+                          active ? 'bg-[color:var(--panel-3)]' : 'bg-[color:var(--panel-2)]/70 hover:bg-[color:var(--panel-3)]',
+                        ].join(' ')}
+                        key={event.id}
+                        onClick={() => setSelectedEventId(event.id)}
+                      >
+                        <td className="px-4 py-4 align-top text-xs text-[var(--muted)]">{formatDateTime(event.scheduledAt)}</td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="flex flex-wrap gap-1.5">
+                            {event.currencyCodes.slice(0, 3).map((code) => (
+                              <span key={code} className="rounded-[2px] border border-[var(--line)] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+                                {code}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="font-medium text-[var(--text)]">{event.title}</div>
+                        </td>
+                        <td className="px-4 py-4 align-top text-xs text-[var(--muted)]">{event.region}</td>
+                        <td className="px-4 py-4 align-top">
+                          <Badge tone={toneForImpact(event.impact)}>{event.impact}</Badge>
+                        </td>
+                        <td className="px-4 py-4 align-top text-right text-xs font-semibold text-[var(--text)]">{event.actual ?? '--'}</td>
+                        <td className="px-4 py-4 align-top text-right text-xs text-[var(--muted)]">{event.forecast}</td>
+                        <td className="px-4 py-4 align-top text-right text-xs text-[var(--muted)]">{event.prior}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
+          </section>
         </div>
 
         <div className="space-y-4">
-          <Panel>
-            <CompactSection label="Focus" title="Top urgency" />
+          <section className="bg-[color:var(--panel)] p-4">
+            <CompactSection label="Inspector" title={selectedEvent ? selectedEvent.title : 'Event'} detail={selectedEvent ? selectedEvent.scenarioNarrative : undefined} />
+            {selectedEvent ? (
+              <>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Stat label="Region" value={selectedEvent.region} />
+                  <Stat label="Time" value={formatDateTime(selectedEvent.scheduledAt)} />
+                  <Stat label="Impact" value={selectedEvent.impact} />
+                  <Stat label="Urgency" value={formatNumber(selectedEvent.urgency, 0)} />
+                </div>
+                <div className="mt-4 space-y-2 border-t border-[color:rgba(141,164,179,0.08)] pt-4">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Scenarios</div>
+                  <div className="border border-[rgba(105,211,192,0.22)] bg-[rgba(105,211,192,0.08)] px-4 py-3 text-sm text-[var(--text)]">Stronger-than-expected: supports the local currency and intensifies repricing across linked pairs.</div>
+                  <div className="border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3 text-sm text-[var(--text)]">In-line print: keeps the current market story intact and shifts focus back to the next catalyst.</div>
+                  <div className="border border-[rgba(227,128,120,0.22)] bg-[rgba(227,128,120,0.08)] px-4 py-3 text-sm text-[var(--text)]">Softer-than-expected: pressures the currency and opens reversal risk in crowded trend trades.</div>
+                </div>
+                <div className="mt-4 space-y-2 border-t border-[color:rgba(141,164,179,0.08)] pt-4">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Linked market</div>
+                  {selectedEvent.pairIds.length ? (
+                    selectedEvent.pairIds.slice(0, 3).map((pairId) => (
+                      <Link className="flex items-center justify-between bg-[color:var(--panel-2)] px-3 py-2.5 transition hover:bg-[color:var(--panel-3)]" key={pairId} to={`/app/markets/${pairId}`}>
+                        <span className="text-sm font-medium text-[var(--text)]">{formatPairCode(pairId)}</span>
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Open</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="bg-[color:var(--panel-2)] px-3 py-2.5 text-sm text-[var(--muted)]">No linked pairs.</div>
+                  )}
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {selectedEvent.currencyCodes.map((code) => (
+                      <Link key={code} to={`/app/currencies/${code}`}>
+                        <MiniPill tone="default">{code}</MiniPill>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="mt-4 text-sm text-[var(--muted)]">No event selected.</div>
+            )}
+          </section>
+
+          <section className="bg-[color:var(--panel)] p-4">
+            <CompactSection label="Priority queue" title="Top urgency" />
             <div className="mt-4 space-y-3">
               {topNarrative.map((event) => (
                 <button
@@ -348,35 +355,41 @@ export const EventsPage = () => {
                 </button>
               ))}
             </div>
-          </Panel>
+          </section>
 
-          <Panel>
-            <CompactSection label="News" title="Stream" />
-            <div className="mt-4 space-y-3">
-              {filteredNews.slice(0, 6).map((item) => (
-                <div className="border border-[var(--line)] bg-[color:var(--panel-2)] px-4 py-3" key={item.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-medium text-[var(--text)]">{item.headline}</div>
-                      <div className="mt-1 text-xs text-[var(--muted)]">{item.source} · {formatDateTime(item.timestamp)}</div>
-                    </div>
-                    <Badge tone={toneForSentiment(item.sentiment)}>{item.sentiment}</Badge>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {item.currencyCodes.slice(0, 3).map((code) => (
-                      <span key={code} className="rounded-[2px] border border-[var(--line)] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                        {code}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-3 text-sm leading-6 text-[var(--muted)]">{item.whyItMatters}</div>
-                </div>
-              ))}
+          <section className="bg-[color:var(--panel)] p-4">
+            <CompactSection label="Sentiment" title="Terminal balance" />
+            <div className="mt-4 grid gap-2">
+              <div className="flex items-center justify-between bg-[color:var(--panel-2)] px-4 py-3">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">Bullish</span>
+                <span className="text-sm font-semibold text-[var(--accent)]">{sentimentSummary.bullish}</span>
+              </div>
+              <div className="flex items-center justify-between bg-[color:var(--panel-2)] px-4 py-3">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">Neutral</span>
+                <span className="text-sm font-semibold text-[var(--text)]">{sentimentSummary.neutral}</span>
+              </div>
+              <div className="flex items-center justify-between bg-[color:var(--panel-2)] px-4 py-3">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">Bearish</span>
+                <span className="text-sm font-semibold text-[var(--danger)]">{sentimentSummary.bearish}</span>
+              </div>
             </div>
-          </Panel>
+          </section>
+
+          {priorityPairs.length ? (
+            <section className="bg-[color:var(--panel)] p-4">
+              <CompactSection label="Linked" title="Priority pairs" />
+              <div className="mt-4 flex flex-wrap gap-2">
+                {priorityPairs.map((pairId) => (
+                  <Link className="bg-[color:var(--panel-2)] px-3 py-2 text-[11px] font-medium text-[var(--text)] transition hover:bg-[color:var(--panel-3)]" key={pairId} to={`/app/markets/${pairId}`}>
+                    {formatPairCode(pairId)}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
-    </Page>
+      </div>
   )
 }
 

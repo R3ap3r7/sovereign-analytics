@@ -336,7 +336,7 @@ export const appApi = {
     return delay(getSeed().strategies, 180)
   },
   async getPortfolioWorkspace() {
-    return delay(getUserPortfolioWorkspace(getSeed(), this.getCurrentUser()), 220)
+    return delay(getUserPortfolioWorkspace(getSeed(), this.getCurrentUser()), 90)
   },
   async listWatchlistItems() {
     return delay(getUserWatchlist(getSeed(), this.getCurrentUser()), 150)
@@ -441,6 +441,26 @@ export const appApi = {
           },
           ...runtime.watchlist,
         ]
+    writeRuntime(runtime)
+    return delay(runtime.watchlist.filter((item) => item.userId === user.id), 120)
+  },
+  async upsertWatchlist(entityType: WatchEntityType, entityId: string, priority: WatchlistItem['priority'] = 'medium') {
+    const user = this.getCurrentUser()
+    if (!user) throw new Error('No active user')
+    const runtime = cloneRuntime()
+    const existingIndex = runtime.watchlist.findIndex(
+      (item) => item.userId === user.id && item.entityType === entityType && item.entityId === entityId,
+    )
+    const nextItem: WatchlistItem = {
+      id: existingIndex >= 0 ? runtime.watchlist[existingIndex].id : `watch-${Date.now()}`,
+      userId: user.id,
+      entityType,
+      entityId,
+      createdAt: existingIndex >= 0 ? runtime.watchlist[existingIndex].createdAt : new Date().toISOString(),
+      priority,
+    }
+    if (existingIndex >= 0) runtime.watchlist[existingIndex] = nextItem
+    else runtime.watchlist = [nextItem, ...runtime.watchlist]
     writeRuntime(runtime)
     return delay(runtime.watchlist.filter((item) => item.userId === user.id), 120)
   },
