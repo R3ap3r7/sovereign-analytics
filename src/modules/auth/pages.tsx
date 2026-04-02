@@ -4,7 +4,6 @@ import {
   CandlestickChart,
   CheckCircle2,
   KeyRound,
-  LockKeyhole,
   Mail,
   Radar,
   Shield,
@@ -109,54 +108,6 @@ const statusLabel = (locked: boolean, verified: boolean, status: string) => {
   if (locked) return 'Locked'
   if (!verified || status === 'unverified') return 'Verify'
   return 'Ready'
-}
-
-const statusTone = (locked: boolean, verified: boolean, status: string) => {
-  if (locked) return 'border-rose-500/20 bg-rose-500/10 text-rose-200'
-  if (!verified || status === 'unverified') return 'border-amber-400/20 bg-amber-400/10 text-amber-100'
-  return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-}
-
-const PersonaList = ({ onSelect }: { onSelect?: (email: string, password: string) => void }) => {
-  const personas = [...getSeed().users]
-    .sort((left, right) => Number(left.locked) - Number(right.locked) || Number(!left.verified) - Number(!right.verified))
-    .slice(0, 5)
-
-  return (
-    <div className="space-y-2">
-      {personas.map((persona) => (
-        <button
-          className="flex w-full items-start justify-between gap-4 rounded-[4px] border border-[rgba(118,117,120,0.16)] bg-[#16181b] p-4 text-left transition hover:border-[rgba(216,181,116,0.26)] hover:bg-[#1a1d20]"
-          key={persona.id}
-          onClick={() => onSelect?.(persona.email, persona.password)}
-          type="button"
-        >
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <div className="flex size-9 items-center justify-center rounded-[4px] bg-[#0f1113] text-[#d8b574]">
-                <UserRound className="size-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-[#f2efea]">{persona.displayName}</div>
-                <div className="truncate text-[11px] text-[#87909b]">{persona.email}</div>
-              </div>
-            </div>
-            <div className="mt-3 text-[11px] uppercase tracking-[0.18em] text-[#97a1ab]">
-              {persona.analysisFocus} focus · {persona.defaultAccountCurrency}
-            </div>
-          </div>
-          <span
-            className={cn(
-              'shrink-0 rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em]',
-              statusTone(persona.locked, persona.verified, persona.status),
-            )}
-          >
-            {statusLabel(persona.locked, persona.verified, persona.status)}
-          </span>
-        </button>
-      ))}
-    </div>
-  )
 }
 
 const AuthWorkspace = ({
@@ -439,9 +390,16 @@ export const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const visibleUsers = [...getSeed().users]
+  const seed = getSeed()
+  const visibleUsers = [...seed.users]
     .sort((left, right) => Number(left.locked) - Number(right.locked) || Number(!left.verified) - Number(!right.verified))
-    .slice(0, 4)
+    .slice(0, 5)
+  const quickAccessUsers = visibleUsers.slice(0, 2)
+  const metrics = [
+    { label: 'Tracked pairs', value: String(seed.pairs.length).padStart(2, '0'), detail: 'FX coverage' },
+    { label: 'Macro events', value: String(seed.events.length).padStart(2, '0'), detail: 'calendar items' },
+    { label: 'Headlines', value: String(seed.news.length).padStart(2, '0'), detail: 'live context' },
+  ]
   const intendedPath = (location.state as { from?: string } | null)?.from
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -455,80 +413,179 @@ export const LoginPage = () => {
   }
 
   return (
-    <AuthWorkspace
-      description="Use an existing analyst account or create a new one."
-      eyebrow="Access"
-      footer={
-        <>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8f98a3]">Quick fill</div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {visibleUsers.map((user) => (
-              <button
-                className="rounded-[4px] border border-[rgba(118,117,120,0.18)] bg-[#141518] px-4 py-3 text-left transition hover:border-[rgba(216,181,116,0.3)] hover:bg-[#181a1d]"
-                key={user.id}
-                onClick={() => {
-                  setEmail(user.email)
-                  setPassword(user.password)
-                  setError('')
-                }}
-                type="button"
-              >
-                <div className="text-sm font-semibold text-[#f0ece7]">{user.displayName}</div>
-                <div className="mt-1 text-[11px] text-[#8f98a3]">{user.email}</div>
-              </button>
-            ))}
-          </div>
-        </>
-      }
-      formDescription="Email and password"
-      formTitle="Login"
-      form={
-        <>
-          <form className="space-y-6" onSubmit={submit}>
-            <div className="grid gap-4">
-              <AuthField label="Email">
-                <AuthInput autoComplete="email" placeholder="name@sovereignanalytics.com" value={email} onChange={(event) => setEmail(event.target.value)} />
-              </AuthField>
-              <AuthField
-                action={
-                  <Link className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d8b574] transition hover:text-[#ead198]" to="/forgot-password">
-                    Forgot
-                  </Link>
-                }
-                label="Password"
-              >
-                <AuthInput autoComplete="current-password" placeholder="Enter your password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-              </AuthField>
+    <div className="min-h-screen overflow-hidden bg-[var(--bg)] text-[var(--text)]">
+      <main className="grid min-h-screen lg:grid-cols-[minmax(420px,0.42fr)_minmax(0,0.58fr)]">
+        <aside className="relative hidden border-r border-[color:var(--line)] bg-[rgba(7,13,19,0.72)] lg:flex">
+          <div className="pointer-events-none absolute inset-0 opacity-[0.1]" style={{ backgroundImage: 'linear-gradient(to right, rgba(141,164,179,0.16) 1px, transparent 1px), linear-gradient(to bottom, rgba(141,164,179,0.16) 1px, transparent 1px)', backgroundSize: '36px 36px' }} />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(105,211,192,0.12),transparent_38%)]" />
+          <div className="relative z-10 flex w-full flex-col px-10 py-12 xl:px-14 xl:py-14">
+            <div>
+              <div className="mb-4 font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">Workspace access</div>
+              <Link className="inline-block" to="/">
+                <h1 className="font-display text-5xl font-semibold tracking-[-0.07em] text-[var(--accent)] xl:text-6xl">Sovereign Analytics</h1>
+              </Link>
+              <p className="mt-5 max-w-sm text-sm leading-7 text-[var(--muted)]">
+                Sign in to the live FX research workspace for currencies, events, portfolio tracking, and forecasting.
+              </p>
             </div>
-            {error ? <div className="rounded-[4px] border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
-            <AuthButton type="submit">Secure login</AuthButton>
-          </form>
-          <div className="flex items-center justify-between gap-4 text-sm text-[#9ea6b0]">
-            <span>Need a new account?</span>
-            <Link className="font-semibold text-[#d8b574] transition hover:text-[#ecd7a6]" to="/signup">
-              Create one
-            </Link>
+
+            <div className="mt-12 grid gap-px bg-[color:var(--line)]">
+              {metrics.map((metric) => (
+                <div className="flex items-center justify-between bg-[var(--panel-4)] px-5 py-4" key={metric.label}>
+                  <div>
+                    <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">{metric.label}</div>
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-[color:rgba(142,162,175,0.72)]">{metric.detail}</div>
+                  </div>
+                  <div className="font-mono text-lg font-bold tracking-[0.12em] text-[var(--accent)]">{metric.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-14">
+              <div className="mb-5 font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">Operator accounts</div>
+              <div className="space-y-3">
+                {visibleUsers.map((user) => {
+                  const badgeClass = user.locked
+                    ? 'bg-[rgba(227,128,120,0.14)] text-[var(--danger)]'
+                    : !user.verified || user.status === 'unverified'
+                      ? 'bg-[rgba(154,185,208,0.14)] text-[var(--accent-2)]'
+                      : 'bg-[rgba(104,199,157,0.12)] text-[var(--success)]'
+
+                  return (
+                    <button
+                      className="flex w-full items-center justify-between border border-transparent bg-[var(--panel-4)] px-4 py-3 text-left transition hover:border-[color:var(--line-strong)] hover:bg-[var(--panel-2)]"
+                      key={user.id}
+                      onClick={() => {
+                        setEmail(user.email)
+                        setPassword(user.password)
+                        setError('')
+                      }}
+                      type="button"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-10 items-center justify-center border border-[color:var(--line)] bg-[var(--panel-3)] text-[var(--accent-2)]">
+                          <UserRound className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text)]">{user.displayName}</div>
+                          <div className="truncate text-xs text-[var(--muted)]">{user.email}</div>
+                          <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-[color:rgba(142,162,175,0.72)]">
+                            {user.analysisFocus} · {user.defaultAccountCurrency}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={cn('shrink-0 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.18em]', badgeClass)}>
+                        {statusLabel(user.locked, user.verified, user.status)}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="mt-auto flex items-center gap-3 border-t border-[color:var(--line)] pt-6">
+              <div className="size-1.5 bg-[var(--accent)]" />
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">Data feed active</span>
+            </div>
           </div>
-        </>
-      }
-      sideChildren={
-        <>
-          <PersonaList
-            onSelect={(selectedEmail, selectedPassword) => {
-              setEmail(selectedEmail)
-              setPassword(selectedPassword)
-              setError('')
-            }}
-          />
-          <div className="grid gap-3 md:grid-cols-2">
-            <AuthPanel body="Real users load their own preferences, watchlists, and portfolio state." icon={<Radar className="size-4" />} title="Workspace state" />
-            <AuthPanel body="Locked and verification-required accounts stay available for route testing." icon={<LockKeyhole className="size-4" />} title="Access checks" />
+        </aside>
+
+        <section className="relative flex items-center justify-center bg-[rgba(9,16,23,0.82)] px-6 py-10 md:px-10 xl:px-16">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(105,211,192,0.08),transparent_42%)]" />
+          <div className="relative z-10 w-full max-w-[470px]">
+            <div className="mb-10 lg:hidden">
+              <Link className="font-display text-3xl font-semibold tracking-[-0.06em] text-[var(--accent)]" to="/">
+                Sovereign Analytics
+              </Link>
+            </div>
+
+            <div className="mb-10">
+              <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">Secure login</div>
+              <h2 className="font-display text-4xl font-semibold tracking-[-0.06em] text-[var(--text)] md:text-5xl">Continue to workspace</h2>
+              <p className="mt-3 text-sm text-[var(--muted)]">Use your account credentials to open the research terminal.</p>
+            </div>
+
+            <form className="space-y-6" onSubmit={submit}>
+              <div className="space-y-5 border border-[color:var(--line)] bg-[var(--panel)] p-7 md:p-8">
+                <label className="block space-y-2">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">Email</span>
+                  <input
+                    autoComplete="email"
+                    className="w-full border border-[color:var(--line)] bg-[var(--panel-4)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition placeholder:text-[color:rgba(142,162,175,0.45)] focus:border-[var(--accent)]"
+                    placeholder="name@sovereignanalytics.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                </label>
+
+                <label className="block space-y-2">
+                  <span className="flex items-center justify-between gap-3 font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">
+                    <span>Password</span>
+                    <Link className="text-[var(--accent)] transition hover:text-[var(--accent-2)]" to="/forgot-password">
+                      Forgot
+                    </Link>
+                  </span>
+                  <input
+                    autoComplete="current-password"
+                    className="w-full border border-[color:var(--line)] bg-[var(--panel-4)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition placeholder:text-[color:rgba(142,162,175,0.45)] focus:border-[var(--accent)]"
+                    placeholder="Enter your password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </label>
+
+                {error ? <div className="border border-[rgba(227,128,120,0.3)] bg-[rgba(227,128,120,0.12)] px-4 py-3 text-sm text-[#f4c2bd]">{error}</div> : null}
+
+                <div className="space-y-3 pt-2">
+                  <button
+                    className="machined-gradient inline-flex w-full items-center justify-center px-5 py-4 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#062b27] transition hover:brightness-110 active:scale-[0.99]"
+                    type="submit"
+                  >
+                    Sign in
+                  </button>
+                  <Link
+                    className="inline-flex w-full items-center justify-center border border-[color:rgba(105,211,192,0.55)] px-5 py-4 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--accent)] transition hover:bg-[rgba(105,211,192,0.08)]"
+                    to="/signup"
+                  >
+                    Create account
+                  </Link>
+                </div>
+              </div>
+            </form>
+
+            <div className="mt-10">
+              <div className="mb-5 flex items-center gap-4">
+                <div className="h-px flex-1 bg-[color:var(--line)]" />
+                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">Quick access</span>
+                <div className="h-px flex-1 bg-[color:var(--line)]" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {quickAccessUsers.map((user) => (
+                  <button
+                    className="flex items-center justify-between border border-[color:var(--line)] bg-[var(--panel-4)] px-4 py-3 transition hover:border-[color:rgba(105,211,192,0.45)] hover:bg-[var(--panel-2)]"
+                    key={user.id}
+                    onClick={() => {
+                      setEmail(user.email)
+                      setPassword(user.password)
+                      setError('')
+                    }}
+                    type="button"
+                  >
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">{user.displayName.split(' ')[0]}</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">{user.analysisFocus}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-14 text-center">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-[color:rgba(142,162,175,0.68)]">Session routing and verification rules apply after sign-in.</p>
+            </div>
           </div>
-        </>
-      }
-      sideTitle="Current Accounts"
-      title="ENTER THE RESEARCH WORKSPACE"
-    />
+        </section>
+      </main>
+    </div>
   )
 }
 

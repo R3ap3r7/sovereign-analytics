@@ -92,7 +92,7 @@ export const AppShell = () => {
         <div className="flex items-center gap-4">
           <div className="hidden items-center gap-2 border border-[#70d8c833] bg-[#32a1921a] px-2 py-1 md:flex">
             <span className="size-1.5 animate-pulse bg-[#70d8c8]" />
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#70d8c8]">Demo Data</span>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#70d8c8]">Live Feed</span>
           </div>
           <div className="relative">
             <button className="p-1 text-[var(--muted)] transition hover:bg-[#353534] hover:text-[var(--text)]" onClick={() => setNotificationOpen((value) => !value)} type="button">

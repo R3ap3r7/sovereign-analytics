@@ -16,6 +16,7 @@
     "db:seed": "tsx server/scripts/seed.ts",
     "db:sync:latest": "tsx server/scripts/fx-sync-latest.ts",
     "db:sync:news": "tsx server/scripts/news-sync.ts",
+    "db:sync:forecast": "tsx server/scripts/forecast-sync.ts",
     "db:sync:all": "tsx server/scripts/sync-all.ts"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ForecastChart, PerformanceChart } from '../../components/charts/analytics'
-import { LoadingPanel } from '../../components/ui/primitives'
+import { Badge, LoadingPanel, Page, Panel, SectionTitle } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
 import { getSeed } from '../../domain/services/api'
 import { useAsyncResource } from '../../lib/useAsyncResource'
@@ -49,12 +49,20 @@ export const StrategyLabPage = () => {
   const selectedScenario = data.scenarios.find((item) => item.id === selectedScenarioId) ?? data.scenarios[0]
 
   return (
-    <div className="space-y-6">
-      <section className="bg-[color:var(--panel)] p-6">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,10rem))]">
-          <div>
+    <Page
+      actions={
+        <>
+          <Badge tone="accent">{selectedStrategy.style}</Badge>
+          <Badge tone="warning">{selectedStrategy.riskProfile}</Badge>
+        </>
+      }
+      description="Review strategy templates, adjust simple operating rules, and push macro regime changes into the broader workspace."
+      title={selectedStrategy.name}
+    >
+      <Panel className="p-0">
+        <div className="grid gap-px bg-[var(--line)] xl:grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,10rem))]">
+          <div className="bg-[color:var(--panel-2)] px-5 py-5">
             <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--muted)]">Strategy workstation</div>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">{selectedStrategy.name}</h1>
             <div className="mt-2 text-sm text-[var(--muted)]">{selectedStrategy.style} · {selectedStrategy.riskProfile}</div>
           </div>
           {[
@@ -63,17 +71,18 @@ export const StrategyLabPage = () => {
             ['Drawdown', '-4.2R'],
             ['Regime fit', selectedStrategy.suitedRegimes[0] ?? '-'],
           ].map(([label, value]) => (
-            <div className="bg-[color:var(--panel-2)] px-4 py-3" key={label}>
+            <div className="bg-[color:var(--panel-2)] px-4 py-4" key={label}>
               <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">{label}</div>
-              <div className="mt-2 text-xl font-bold text-[var(--text)]">{value}</div>
+              <div className="mt-3 font-display text-[1.65rem] font-semibold tracking-[-0.04em] text-[var(--text)]">{value}</div>
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
-          <section className="bg-[color:var(--panel)] p-4">
+          <Panel>
+            <SectionTitle eyebrow="Templates" title="Strategy set" detail="Switch the template, then inspect the historical run and scenario response below." />
             <div className="flex flex-wrap gap-1 bg-[color:var(--panel-2)] p-1">
               {data.strategies.map((strategy) => (
                 <button className={tabClass(strategy.id === selectedStrategy.id)} key={strategy.id} onClick={() => setSelectedStrategyId(strategy.id)} type="button">
@@ -81,12 +90,12 @@ export const StrategyLabPage = () => {
                 </button>
               ))}
             </div>
-          </section>
+          </Panel>
 
           <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
             <div className="space-y-6">
-              <section className="bg-[color:var(--panel)] p-6">
-                <h2 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Rule builder</h2>
+              <Panel className="p-6">
+                <SectionTitle eyebrow="Rules" title="Rule builder" detail="Adjust the simplified entry, exit, and risk assumptions for the current strategy template." />
                 <div className="grid gap-4">
                   {[
                     ['Entry trigger', entryTrigger, setEntryTrigger],
@@ -99,10 +108,10 @@ export const StrategyLabPage = () => {
                     </label>
                   ))}
                 </div>
-              </section>
+              </Panel>
 
-              <section className="bg-[color:var(--panel)] p-6">
-                <h2 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Strategy fit</h2>
+              <Panel className="p-6">
+                <SectionTitle eyebrow="Coverage" title="Strategy fit" />
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Suited pairs</div>
@@ -125,12 +134,12 @@ export const StrategyLabPage = () => {
                     </div>
                   </div>
                 </div>
-              </section>
+              </Panel>
             </div>
 
             <section className="space-y-6">
-              <section className="bg-[color:var(--panel)] p-6">
-                <h2 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Historical run</h2>
+              <Panel className="p-6">
+                <SectionTitle eyebrow="Performance" title="Historical run" detail="Illustrative performance view for how the strategy could be presented inside the product." />
                 <PerformanceChart data={performanceData} labelKey="label" valueKey="equity" />
                 <div className="mt-4 grid gap-2 md:grid-cols-4">
                   {[
@@ -145,10 +154,10 @@ export const StrategyLabPage = () => {
                     </div>
                   ))}
                 </div>
-              </section>
+              </Panel>
 
-              <section className="bg-[color:var(--panel)] p-6">
-                <h2 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Monthly heatmap</h2>
+              <Panel className="p-6">
+                <SectionTitle eyebrow="Distribution" title="Monthly heatmap" />
                 <div className="space-y-2">
                   {heatmap.map((row) => (
                     <div className="grid grid-cols-[4rem_repeat(12,minmax(0,1fr))] gap-1" key={row.year}>
@@ -170,14 +179,14 @@ export const StrategyLabPage = () => {
                     </div>
                   ))}
                 </div>
-              </section>
+              </Panel>
             </section>
           </section>
         </div>
 
         <aside className="space-y-6">
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Regime lab</div>
+          <Panel>
+            <SectionTitle eyebrow="Scenarios" title="Regime lab" />
             <div className="space-y-2">
               {data.scenarios.map((scenario) => (
                 <button className={tabClass(scenario.id === selectedScenario.id)} key={scenario.id} onClick={() => setSelectedScenarioId(scenario.id)} type="button">
@@ -185,13 +194,13 @@ export const StrategyLabPage = () => {
                 </button>
               ))}
             </div>
-          </section>
+          </Panel>
 
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Scenario impact</div>
+          <Panel>
+            <SectionTitle eyebrow="Impact" title="Scenario impact" />
             <div className="space-y-2">
               {Object.entries(selectedScenario.pairEffects).map(([code, value]) => (
-                <div className="flex items-center justify-between bg-[color:var(--panel-2)] px-3 py-2.5" key={code}>
+                <div className="flex items-center justify-between rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2.5" key={code}>
                   <span className="text-sm font-medium text-[var(--text)]">{code.replace(/-/g, '/').toUpperCase()}</span>
                   <span className={value >= 0 ? 'text-[11px] font-semibold text-[var(--accent)]' : 'text-[11px] font-semibold text-[var(--danger)]'}>
                     {value >= 0 ? '+' : ''}
@@ -225,14 +234,14 @@ export const StrategyLabPage = () => {
             >
               Apply scenario
             </button>
-          </section>
+          </Panel>
 
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Illustration</div>
+          <Panel>
+            <SectionTitle eyebrow="Illustration" title="Forecast overlay" />
             <ForecastChart forecast={data.forecast} />
-          </section>
+          </Panel>
         </aside>
       </div>
-    </div>
+    </Page>
   )
 }

@@ -9,11 +9,13 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-import type { Forecast, PriceSeries } from '../../domain/types'
+import type { Forecast, ForecastDailyPoint, PriceSeries } from '../../domain/types'
+import { formatNumber } from '../../lib/utils'
 
 const chartTooltipProps = {
   contentStyle: {
@@ -97,7 +99,7 @@ export const PriceChart = ({
       ) : null}
       {showForecast && forecast ? (
         <div className="mt-3 text-xs text-[var(--muted)]">
-          Forecast overlay widens from {forecast.basePath[0]?.horizon} to {forecast.basePath.at(-1)?.horizon}; illustrative only.
+          Forecast overlay spans {forecast.basePath[0]?.horizon} through {forecast.basePath.at(-1)?.horizon} with model-derived uncertainty bands.
         </div>
       ) : null}
     </div>
@@ -121,25 +123,190 @@ export const StrengthChart = ({ data }: { data: Array<{ code: string; strengthSc
   )
 }
 
-export const ForecastChart = ({ forecast }: { forecast: Forecast }) => {
-  const data = forecast.basePath.map((point, index) => ({
-    horizon: point.horizon,
-    base: point.value,
-    optimistic: forecast.optimisticPath[index]?.value,
-    pessimistic: forecast.pessimisticPath[index]?.value,
-  }))
-  const { ref, width, height } = useChartSize(256)
+const formatForecastAxisDate = (value: string) => {
+  if (value.startsWith('D+')) return value
+  const date = new Date(`${value}T00:00:00Z`)
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
+}
+
+const ForecastTooltip = ({
+  active,
+  payload,
+  label,
+  displayMode,
+  displayPrecision,
+}: {
+  active?: boolean
+  payload?: Array<{ payload: Record<string, number | string> }>
+  label?: string
+  displayMode: 'price' | 'move'
+  displayPrecision: number
+}) => {
+  if (!active || !payload?.length) return null
+  const point = payload[0]?.payload as {
+    date: string
+    day: number
+    base: number
+    upper: number
+    lower: number
+    uncertaintyBps: number
+    moveBps: number
+    upperMoveBps: number
+    lowerMoveBps: number
+  }
+  const movePct = point.moveBps / 100
+
   return (
-    <div className="h-64 min-w-0 w-full" ref={ref}>
+    <div className="min-w-[220px] border border-[color:rgba(141,164,179,0.16)] bg-[rgba(10,16,22,0.98)] p-3 text-[11px] text-[var(--text)] shadow-[0_20px_80px_rgba(3,7,11,0.48)]">
+      <div className="mb-2 flex items-center justify-between gap-3 border-b border-[color:rgba(141,164,179,0.12)] pb-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{label ? formatForecastAxisDate(label) : point.date}</div>
+          <div className="mt-1 text-xs font-semibold text-[var(--text)]">Day {point.day}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Move vs spot</div>
+          <div className={movePct >= 0 ? 'text-xs font-bold text-[var(--success)]' : 'text-xs font-bold text-[var(--danger)]'}>
+            {movePct >= 0 ? '+' : ''}{formatNumber(movePct, 2)}%
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[var(--muted)]">Mean</span>
+          <span className="font-semibold text-[var(--text)]">
+            {displayMode === 'price' ? formatNumber(point.base, displayPrecision) : `${point.moveBps >= 0 ? '+' : ''}${formatNumber(point.moveBps, 0)} bps`}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[var(--muted)]">Upper</span>
+          <span className="font-semibold text-[var(--success)]">
+            {displayMode === 'price' ? formatNumber(point.upper, displayPrecision) : `${point.upperMoveBps >= 0 ? '+' : ''}${formatNumber(point.upperMoveBps, 0)} bps`}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[var(--muted)]">Lower</span>
+          <span className="font-semibold text-[var(--danger)]">
+            {displayMode === 'price' ? formatNumber(point.lower, displayPrecision) : `${point.lowerMoveBps >= 0 ? '+' : ''}${formatNumber(point.lowerMoveBps, 0)} bps`}
+          </span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3 border-t border-[color:rgba(141,164,179,0.12)] pt-2">
+          <span className="text-[var(--muted)]">Band width</span>
+          <span className="font-semibold text-[var(--warning)]">{formatNumber(point.uncertaintyBps, 0)} bps</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export const ForecastChart = ({
+  forecast,
+  windowDays = 21,
+  bandScale = 1,
+  displayMode = 'price',
+  displayPrecision = 4,
+}: {
+  forecast: Forecast
+  windowDays?: number
+  bandScale?: number
+  displayMode?: 'price' | 'move'
+  displayPrecision?: number
+}) => {
+  const buildFallbackDailyPath = (input: Forecast) => {
+    const anchors = [0, 5, 21, 63]
+    const values = [
+      input.spotPrice ?? input.basePath[0]?.value ?? 0,
+      ...(input.basePath.map((point) => point.value)),
+    ]
+    const uncertainties = [0, ...(input.uncertaintyCurve ?? [])]
+
+    return Array.from({ length: 63 }, (_, index) => {
+      const day = index + 1
+      const nextIndex = anchors.findIndex((anchor) => anchor >= day)
+      const upperIndex = nextIndex === -1 ? anchors.length - 1 : nextIndex
+      const lowerIndex = Math.max(0, upperIndex - 1)
+      const ratio = (day - anchors[lowerIndex]) / Math.max(1, anchors[upperIndex] - anchors[lowerIndex])
+      const lowerLog = Math.log(values[lowerIndex] || values[0] || 1)
+      const upperLog = Math.log(values[upperIndex] || values.at(-1) || 1)
+      return {
+        day,
+        date: `D+${day}`,
+        label: `D+${day}`,
+        value: Number(Math.exp(lowerLog + ((upperLog - lowerLog) * ratio)).toFixed(5)),
+        uncertainty: Number(((uncertainties[lowerIndex] ?? 0) + (((uncertainties[upperIndex] ?? 0) - (uncertainties[lowerIndex] ?? 0)) * ratio)).toFixed(5)),
+      } satisfies ForecastDailyPoint
+    })
+  }
+
+  const dailyPath = (forecast.dailyPath?.length ? forecast.dailyPath : buildFallbackDailyPath(forecast)).slice(0, windowDays)
+  const spotPrice = forecast.spotPrice ?? dailyPath[0]?.value ?? forecast.basePath[0]?.value ?? 0
+  const data = dailyPath.map((point) => {
+    const upper = point.value * Math.exp(point.uncertainty * bandScale)
+    const lower = point.value * Math.exp(-point.uncertainty * bandScale)
+    const toBps = (value: number) => (spotPrice ? ((value - spotPrice) / spotPrice) * 10000 : 0)
+    return {
+      label: point.label || point.date,
+      date: point.date,
+      day: point.day,
+      base: displayMode === 'price' ? point.value : toBps(point.value),
+      upper: displayMode === 'price' ? upper : toBps(upper),
+      lower: displayMode === 'price' ? lower : toBps(lower),
+      bandBase: displayMode === 'price' ? lower : toBps(lower),
+      bandSize: displayMode === 'price' ? upper - lower : toBps(upper) - toBps(lower),
+      uncertaintyBps: point.uncertainty * 10000 * bandScale,
+      moveBps: toBps(point.value),
+      upperMoveBps: toBps(upper),
+      lowerMoveBps: toBps(lower),
+    }
+  })
+  const values = data.flatMap((point) => [point.lower, point.base, point.upper])
+  const minValue = Math.min(...values)
+  const maxValue = Math.max(...values)
+  const span = Math.max(maxValue - minValue, displayMode === 'price' ? Math.max(spotPrice * 0.0025, 0.0001) : 12)
+  const pad = span * 0.18
+  const yDomain: [number, number] = [minValue - pad, maxValue + pad]
+  const { ref, width, height } = useChartSize(320)
+  const referenceValue = displayMode === 'price' ? spotPrice : 0
+
+  return (
+    <div className="h-80 min-w-0 w-full" ref={ref}>
       {width ? (
         <AreaChart data={data} height={height} width={width}>
           <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-          <XAxis dataKey="horizon" tick={{ fill: '#93a59a' }} />
-          <YAxis tick={{ fill: '#93a59a' }} domain={['auto', 'auto']} />
-          <Tooltip {...chartTooltipProps} />
-          <Area dataKey="optimistic" stroke="#8bc4a8" fill="rgba(139,196,168,0.22)" />
-          <Area dataKey="pessimistic" stroke="#e38078" fill="rgba(227,128,120,0.12)" />
-          <Line type="monotone" dataKey="base" stroke="#eff4ee" strokeWidth={2} dot={{ r: 3 }} />
+          <defs>
+            <linearGradient id="forecast-band" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="rgba(105,211,192,0.32)" />
+              <stop offset="100%" stopColor="rgba(105,211,192,0.02)" />
+            </linearGradient>
+            <linearGradient id="forecast-line" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor="#7bd0ff" />
+              <stop offset="100%" stopColor="#69d3c0" />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="label" minTickGap={28} tick={{ fill: '#93a59a', fontSize: 10 }} tickFormatter={formatForecastAxisDate} />
+          <YAxis
+            domain={yDomain}
+            tick={{ fill: '#93a59a', fontSize: 10 }}
+            tickFormatter={(value) => displayMode === 'price' ? formatNumber(Number(value), displayPrecision) : `${formatNumber(Number(value), 0)}bps`}
+          />
+          <Tooltip
+            content={(
+              <ForecastTooltip
+                displayMode={displayMode}
+                displayPrecision={displayPrecision}
+              />
+            )}
+            cursor={{ stroke: 'rgba(123, 208, 255, 0.3)', strokeWidth: 1 }}
+          />
+          <ReferenceLine
+            ifOverflow="extendDomain"
+            stroke="rgba(141,164,179,0.3)"
+            strokeDasharray="4 4"
+            y={referenceValue}
+          />
+          <Area dataKey="bandBase" fill="transparent" stackId="forecast-band-stack" stroke="transparent" />
+          <Area dataKey="bandSize" fill="url(#forecast-band)" stackId="forecast-band-stack" stroke="transparent" />
+          <Line activeDot={{ r: 5, stroke: '#0a1016', strokeWidth: 1.5 }} dataKey="base" dot={false} stroke="url(#forecast-line)" strokeWidth={2.5} type="monotone" />
         </AreaChart>
       ) : null}
     </div>

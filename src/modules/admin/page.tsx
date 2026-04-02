@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LoadingPanel, Page } from '../../components/ui/primitives'
+import { Badge, LoadingPanel, Page, Panel, SectionTitle } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
 import { appApi, getSeed } from '../../domain/services/api'
 import { formatDateTime, title } from '../../lib/utils'
@@ -40,12 +40,21 @@ export const AdminPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="bg-[color:var(--panel)] p-6">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_repeat(8,minmax(0,8rem))]">
-          <div>
+    <Page
+      actions={
+        <>
+          <Badge tone="warning">{adminMutation.triggeredEventIds.length} event overlays</Badge>
+          <Badge tone="accent">{Object.keys(adminMutation.currencyShifts).length} currency shifts</Badge>
+        </>
+      }
+      description="Apply controlled overlays to currencies, volatility, and event state so the workspace can be demoed under different market regimes."
+      title="Control Center"
+    >
+      <Panel className="p-0">
+        <div className="grid gap-px bg-[var(--line)] lg:grid-cols-[minmax(0,1fr)_repeat(8,minmax(0,8rem))]">
+          <div className="bg-[color:var(--panel-2)] px-5 py-5">
             <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--muted)]">Mutation console</div>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">Control Center</h1>
+            <div className="mt-2 text-sm text-[var(--muted)]">Operational counts across the current workspace.</div>
           </div>
           {[
             ['Users', seed.users.length],
@@ -57,19 +66,19 @@ export const AdminPage = () => {
             ['Alerts', seed.alerts.length],
             ['Notes', seed.notes.length],
           ].map(([label, value]) => (
-            <div className="bg-[color:var(--panel-2)] px-3 py-3" key={label}>
+            <div className="bg-[color:var(--panel-2)] px-3 py-4" key={label}>
               <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">{label}</div>
-              <div className="mt-2 text-xl font-bold tabular-nums text-[var(--text)]">{value}</div>
+              <div className="mt-3 font-display text-[1.55rem] font-semibold tabular-nums text-[var(--text)]">{value}</div>
             </div>
           ))}
         </div>
-      </section>
+      </Panel>
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_0.95fr_20rem]">
         <section className="space-y-4">
-          <div className="bg-[color:var(--panel)] p-4">
+          <Panel>
             <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Persona table</div>
+              <SectionTitle eyebrow="Identity" title="Persona table" />
               <select className="border-none bg-[color:var(--panel-2)] px-3 py-2 text-[11px] text-[var(--text)] outline-none" onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)} value={roleFilter}>
                 <option value="all">All</option>
                 <option value="user">User</option>
@@ -78,7 +87,7 @@ export const AdminPage = () => {
             </div>
             <div className="space-y-2">
               {filteredUsers.map((item) => (
-                <div className="grid grid-cols-[minmax(0,1.2fr)_0.7fr_0.7fr] gap-2 bg-[color:var(--panel-2)] px-3 py-3" key={item.id}>
+                <div className="grid grid-cols-[minmax(0,1.2fr)_0.7fr_0.7fr] gap-2 rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3" key={item.id}>
                   <div>
                     <div className="text-sm font-semibold text-[var(--text)]">{item.displayName}</div>
                     <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{item.email}</div>
@@ -90,10 +99,10 @@ export const AdminPage = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
 
-          <div className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">System collections</div>
+          <Panel>
+            <SectionTitle eyebrow="State" title="System collections" />
             <div className="grid gap-2 md:grid-cols-2">
               {[
                 ['Active users', seed.users.filter((item) => item.status === 'active').length],
@@ -101,32 +110,32 @@ export const AdminPage = () => {
                 ['Unverified', seed.users.filter((item) => !item.verified).length],
                 ['Triggered events', adminMutation.triggeredEventIds.length],
               ].map(([label, value]) => (
-                <div className="bg-[color:var(--panel-2)] px-3 py-3" key={label}>
+                <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3" key={label}>
                   <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">{label}</div>
                   <div className="mt-2 text-sm font-bold text-[var(--text)]">{value}</div>
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
         </section>
 
         <section className="space-y-4">
-          <div className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Mutation snapshot</div>
+          <Panel>
+            <SectionTitle eyebrow="Snapshot" title="Mutation state" />
             <div className="grid gap-2 md:grid-cols-2">
-              <div className="bg-[color:var(--panel-2)] px-3 py-3">
+              <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Currency shift</div>
                 <div className="mt-2 text-sm font-bold text-[var(--text)]">{currency} {adminMutation.currencyShifts[currency] ?? 0}</div>
               </div>
-              <div className="bg-[color:var(--panel-2)] px-3 py-3">
+              <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Pairs affected</div>
                 <div className="mt-2 text-sm font-bold text-[var(--text)]">{affectedPairs.length}</div>
               </div>
-              <div className="bg-[color:var(--panel-2)] px-3 py-3">
+              <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Event target</div>
                 <div className="mt-2 text-sm font-bold text-[var(--text)]">{currentEvent?.title ?? 'None'}</div>
               </div>
-              <div className="bg-[color:var(--panel-2)] px-3 py-3">
+              <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Live monitor</div>
                 <div className="mt-2 text-sm font-bold text-[var(--accent)]">Correlation drift active</div>
               </div>
@@ -139,13 +148,13 @@ export const AdminPage = () => {
                 </span>
               ))}
             </div>
-          </div>
+          </Panel>
 
-          <div className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Live news</div>
+          <Panel>
+            <SectionTitle eyebrow="Feed" title="Live news" />
             <div className="space-y-2">
               {seed.news.slice(0, 4).map((item) => (
-                <div className="bg-[color:var(--panel-2)] px-3 py-3" key={item.id}>
+                <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3" key={item.id}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-medium text-[var(--text)]">{item.headline}</div>
                     <span className={item.sentiment === 'bullish' ? 'text-[11px] font-semibold text-[var(--accent)]' : item.sentiment === 'bearish' ? 'text-[11px] font-semibold text-[var(--danger)]' : 'text-[11px] font-semibold text-[var(--muted)]'}>
@@ -156,12 +165,12 @@ export const AdminPage = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
         </section>
 
         <aside className="space-y-4">
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Mutation controls</div>
+          <Panel>
+            <SectionTitle eyebrow="Controls" title="Mutation controls" />
             <div className="space-y-3">
               <select className={fieldClass} onChange={(event) => setCurrency(event.target.value)} value={currency}>
                 {seed.currencies.map((item) => (
@@ -206,13 +215,13 @@ export const AdminPage = () => {
                 Reset overlays
               </button>
             </div>
-          </section>
+          </Panel>
 
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Affected pairs</div>
+          <Panel>
+            <SectionTitle eyebrow="Propagation" title="Affected pairs" />
             <div className="space-y-2">
               {affectedPairs.map((pair) => (
-                <Link className="flex items-center justify-between bg-[color:var(--panel-2)] px-3 py-2.5 transition hover:bg-[color:var(--panel-3)]" key={pair.id} to={`/app/markets/${pair.id}`}>
+                <Link className="flex items-center justify-between rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2.5 transition hover:border-[rgba(105,211,192,0.35)] hover:bg-[color:var(--panel-3)]" key={pair.id} to={`/app/markets/${pair.id}`}>
                   <span className="text-sm font-medium text-[var(--text)]">{pair.symbol}</span>
                   <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">Open</span>
                 </Link>
@@ -221,9 +230,9 @@ export const AdminPage = () => {
             <div className="mt-4 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
               {currentCurrency?.regionName} · {currentCurrency?.centralBank}
             </div>
-          </section>
+          </Panel>
         </aside>
       </div>
-    </div>
+    </Page>
   )
 }

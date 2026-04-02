@@ -20,6 +20,7 @@ import type {
 import { config } from './lib/config'
 import { ensureSchema, pool, withTransaction } from './lib/db'
 import { loadBootstrap } from './lib/bootstrap'
+import { syncForecasts } from './lib/forecast'
 import { syncLatestFx } from './lib/fx'
 import { syncNewsAndEvents } from './lib/news'
 import { referencePairs } from './lib/reference'
@@ -550,6 +551,14 @@ const start = async () => {
         console.error('Scheduled news sync failed:', error)
       })
     }, config.newsSyncIntervalMinutes * 60 * 1000).unref()
+  }
+
+  if (config.forecastSyncIntervalMinutes > 0) {
+    setInterval(() => {
+      void syncForecasts(pool, referencePairs).catch((error) => {
+        console.error('Scheduled forecast sync failed:', error)
+      })
+    }, config.forecastSyncIntervalMinutes * 60 * 1000).unref()
   }
 }
 

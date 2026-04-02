@@ -216,17 +216,53 @@ export interface ForecastPathPoint {
   value: number
 }
 
+export interface ForecastDailyPoint {
+  day: number
+  date: string
+  label: string
+  value: number
+  uncertainty: number
+}
+
+export interface ForecastEvaluationMetrics {
+  rmseBps: number
+  maeBps: number
+  mape: number
+  directionalAccuracy: number
+}
+
+export interface ForecastModelHorizon {
+  horizon: string
+  horizonDays: number
+  family: string
+  lambda: number
+  features: string[]
+  validation: ForecastEvaluationMetrics
+  test: ForecastEvaluationMetrics
+}
+
+export interface ForecastModelMeta {
+  trainedAt: string
+  methodology: string
+  observations: number
+  lastObservation: string
+  horizons: ForecastModelHorizon[]
+}
+
 export interface Forecast {
   id: string
   pairId: string
+  spotPrice?: number
   horizons: string[]
   basePath: ForecastPathPoint[]
   optimisticPath: ForecastPathPoint[]
   pessimisticPath: ForecastPathPoint[]
+  dailyPath?: ForecastDailyPoint[]
   uncertaintyCurve: number[]
   confidence: number
   driverImportance: Record<string, number>
   disclaimer: string
+  model?: ForecastModelMeta
 }
 
 export interface StrategyTemplate {

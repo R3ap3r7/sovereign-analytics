@@ -316,7 +316,6 @@ export const syncNewsAndEvents = async (_database: Pool, pairs: Pair[]) => {
   await withTransaction(async (client) => {
     await client.query('delete from news')
     await client.query('delete from events')
-    await client.query('delete from forecasts')
 
     for (const item of newsRows) {
       await client.query('insert into news (id, payload) values ($1, $2)', [item.id, item])

@@ -8,6 +8,7 @@ import type {
   User,
 } from '../../src/domain/types'
 import { ensureSchema, withTransaction } from './db'
+import { syncForecasts } from './forecast'
 import { syncHistoricalFx, syncLatestFx } from './fx'
 import { syncNewsAndEvents } from './news'
 import {
@@ -141,6 +142,7 @@ export const seedDatabase = async (database: Pool) => {
   await syncHistoricalFx(database, referencePairs, startDate.toISOString().slice(0, 10), new Date().toISOString().slice(0, 10))
   await syncLatestFx(database, referencePairs)
   await syncNewsAndEvents(database, referencePairs)
+  await syncForecasts(database, referencePairs)
 }
 
 export const initializeDatabase = async (database: Pool) => {
@@ -152,6 +154,7 @@ export const initializeDatabase = async (database: Pool) => {
   await syncHistoricalIfEmpty(database)
   await syncLatestFx(database, referencePairs)
   await syncNewsAndEvents(database, referencePairs)
+  await syncForecasts(database, referencePairs)
 }
 
 export const resetMutableState = async () => {

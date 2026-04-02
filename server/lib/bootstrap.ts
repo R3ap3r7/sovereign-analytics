@@ -5,6 +5,7 @@ import type {
   AdminMarketMutation,
   AlertRule,
   CurrencyProfile,
+  Forecast,
   MacroEvent,
   MacroScenarioPreset,
   NewsItem,
@@ -23,7 +24,7 @@ import type {
   WatchlistItem,
 } from '../../src/domain/types'
 import { config } from './config'
-import { derivePlaceholderForecasts } from './forecast'
+import { deriveFallbackForecasts } from './forecast'
 
 type BootstrapPayload = {
   seed: SeedData
@@ -116,6 +117,7 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
     pairs,
     events,
     news,
+    forecasts,
     strategies,
     scenarios,
     simulations,
@@ -131,6 +133,7 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
     readPayloadRows<Pair>(database, 'pairs'),
     readPayloadRows<MacroEvent>(database, 'events'),
     readPayloadRows<NewsItem>(database, 'news', `(payload->>'timestamp')::timestamptz desc`),
+    readPayloadRows<Forecast>(database, 'forecasts'),
     readPayloadRows<StrategyTemplate>(database, 'strategies'),
     readPayloadRows<MacroScenarioPreset>(database, 'scenarios'),
     readPayloadRows<Simulation>(database, 'simulations', 'updated_at desc'),
@@ -146,6 +149,7 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
     Pair[],
     MacroEvent[],
     NewsItem[],
+    Forecast[],
     StrategyTemplate[],
     MacroScenarioPreset[],
     Simulation[],
@@ -187,7 +191,9 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
 
   const priceSeries = pairs.flatMap((pair: Pair) => derivePriceSeries(pair, historyByPair.get(pair.id) ?? []))
   const technicals = pairs.map((pair: Pair) => deriveTechnicalSnapshot(pair, priceSeries.filter((series) => series.pairId === pair.id)))
-  const forecasts = derivePlaceholderForecasts(pairs, priceSeries, technicals)
+  const derivedFallback = deriveFallbackForecasts(pairs, priceSeries, technicals)
+  const forecastByPair = new Map(forecasts.map((forecast: Forecast) => [forecast.pairId, forecast]))
+  const hydratedForecasts = pairs.map((pair: Pair) => forecastByPair.get(pair.id) ?? derivedFallback.find((forecast) => forecast.pairId === pair.id)!).filter(Boolean)
 
   const portfoliosByUser = new Map(portfolios.map((portfolio: PortfolioAccount) => [portfolio.userId, portfolio.id]))
   const users = userRows.rows.map(mapUser).map((user: User) => ({
@@ -208,7 +214,7 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
     technicals,
     events,
     news,
-    forecasts,
+    forecasts: hydratedForecasts,
     strategies,
     scenarios,
     simulations,

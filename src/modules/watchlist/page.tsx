@@ -1,6 +1,7 @@
+import { BellRing, Eye, Filter, Radar, Siren, Star } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LoadingPanel } from '../../components/ui/primitives'
+import { Badge, LoadingPanel, Page, Panel, SectionTitle } from '../../components/ui/primitives'
 import { appApi, getSeed } from '../../domain/services/api'
 import { buildEntityLabel } from '../../domain/selectors'
 import type { AlertConditionType, EntityType, WatchEntityType, WatchlistItem } from '../../domain/types'
@@ -20,6 +21,9 @@ const priorityToneClass = (priority: WatchlistItem['priority']) =>
     : priority === 'medium'
       ? 'text-[var(--warning)]'
       : 'text-[var(--muted)]'
+
+const priorityBadgeTone = (priority: WatchlistItem['priority']) =>
+  priority === 'high' ? 'danger' : priority === 'medium' ? 'warning' : 'default'
 
 const alertToneClass = (status: string) =>
   status === 'triggered' ? 'text-[var(--danger)]' : status === 'active' ? 'text-[var(--accent)]' : 'text-[var(--muted)]'
@@ -87,31 +91,40 @@ export const WatchlistPage = () => {
   const coverageItems = filteredWatchlist.slice(0, 4)
 
   return (
-    <div className="space-y-6">
-      <section className="bg-[color:var(--panel)] p-6">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_repeat(5,minmax(0,9rem))]">
-          <div>
-            <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--muted)]">Monitoring terminal</div>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">Watchlist & Alerts</h1>
-          </div>
-          {[
-            ['Tracked', String(watchlist.length)],
-            ['Alerts', String(alerts.length)],
-            ['Active', String(activeAlerts.length)],
-            ['Triggered', String(triggeredAlerts.length)],
-            ['Priority', String(filteredWatchlist.filter((item) => item.priority === 'high').length)],
-          ].map(([label, value]) => (
-            <div className="bg-[color:var(--panel-2)] px-4 py-3" key={label}>
-              <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">{label}</div>
-              <div className="mt-2 text-xl font-bold tabular-nums text-[var(--text)]">{value}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
+    <Page
+      actions={
+        <>
+          <Badge tone="accent">{watchlist.length} tracked</Badge>
+          <Badge tone={triggeredAlerts.length ? 'warning' : 'default'}>{triggeredAlerts.length} triggered</Badge>
+        </>
+      }
+      description="Track pairs, currencies, events, and forecasts from one place, then route straight into the deeper workspace."
+      title="Watchlist & Alerts"
+    >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-4">
-          <section className="bg-[color:var(--panel)] p-4">
+        <div className="space-y-6">
+          <Panel className="p-0">
+            <div className="grid gap-px bg-[var(--line)] sm:grid-cols-2 xl:grid-cols-5">
+              {[
+                ['Tracked', String(watchlist.length), <Eye className="size-4" />],
+                ['Alerts', String(alerts.length), <BellRing className="size-4" />],
+                ['Active', String(activeAlerts.length), <Radar className="size-4" />],
+                ['Triggered', String(triggeredAlerts.length), <Siren className="size-4" />],
+                ['Priority', String(filteredWatchlist.filter((item) => item.priority === 'high').length), <Star className="size-4" />],
+              ].map(([label, value, icon]) => (
+                <div className="bg-[color:var(--panel-2)] px-4 py-4" key={label as string}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">{label as string}</div>
+                    <div className="text-[var(--accent)]">{icon}</div>
+                  </div>
+                  <div className="mt-3 font-display text-[1.75rem] font-semibold tracking-[-0.05em] text-[var(--text)]">{value as string}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel>
+            <SectionTitle eyebrow="Filters" title="Coverage view" detail="Switch between entity types and priority lanes without losing the current watch state." />
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-1 bg-[color:var(--panel-2)] p-1">
                 {(['all', 'pair', 'currency', 'event', 'forecast'] as const).map((item) => (
@@ -120,74 +133,98 @@ export const WatchlistPage = () => {
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1 bg-[color:var(--panel-2)] p-1">
-                {(['all', 'high', 'medium', 'low'] as const).map((item) => (
-                  <button className={filterButtonClass(priorityFilter === item)} key={item} onClick={() => setPriorityFilter(item)} type="button">
-                    {item}
-                  </button>
-                ))}
+              <div className="flex items-center gap-3">
+                <div className="hidden text-[var(--muted)] lg:block">
+                  <Filter className="size-4" />
+                </div>
+                <div className="flex flex-wrap gap-1 bg-[color:var(--panel-2)] p-1">
+                  {(['all', 'high', 'medium', 'low'] as const).map((item) => (
+                    <button className={filterButtonClass(priorityFilter === item)} key={item} onClick={() => setPriorityFilter(item)} type="button">
+                      {item}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </section>
+          </Panel>
 
-          <section className="overflow-hidden bg-[color:var(--panel)]">
-            <div className="grid grid-cols-[minmax(0,1.5fr)_0.65fr_0.7fr_0.9fr_0.75fr_0.6fr] gap-px bg-[var(--line)]">
-              {['Entity', 'Type', 'Priority', 'Last activity', 'State', 'Open'].map((label) => (
-                <div className="bg-[color:var(--panel-2)] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]" key={label}>
-                  {label}
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-4 lg:grid-cols-2">
             {filteredWatchlist.map((item) => {
               const href = appApi.getEntityHref(item.entityType, item.entityId)
               const label = linkedLabel(seed, item.entityType === 'forecast' ? 'forecast' : item.entityType, item.entityId)
               const relatedAlert = alerts.find((alert) => alert.entityId === item.entityId)
               return (
-                <div className="grid grid-cols-[minmax(0,1.5fr)_0.65fr_0.7fr_0.9fr_0.75fr_0.6fr] gap-px border-t border-[var(--line)]" key={item.id}>
-                  <div className="bg-[color:var(--panel)] px-4 py-3">
-                    <div className="text-sm font-semibold text-[var(--text)]">{label}</div>
-                    <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">{item.entityId}</div>
+                <Panel key={item.id}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate font-display text-lg font-semibold tracking-[-0.03em] text-[var(--text)]">{label}</h3>
+                        <Badge tone={priorityBadgeTone(item.priority)}>{item.priority}</Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+                        <span>{item.entityType}</span>
+                        <span>•</span>
+                        <span>{item.entityId}</span>
+                      </div>
+                    </div>
+                    <Badge tone={relatedAlert?.status === 'triggered' ? 'danger' : relatedAlert?.status === 'active' ? 'accent' : 'default'}>
+                      {relatedAlert?.status ?? 'tracking'}
+                    </Badge>
                   </div>
-                  <div className="bg-[color:var(--panel)] px-4 py-3 text-sm text-[var(--text)]">{item.entityType}</div>
-                  <div className={`bg-[color:var(--panel)] px-4 py-3 text-sm font-semibold ${priorityToneClass(item.priority)}`}>{item.priority}</div>
-                  <div className="bg-[color:var(--panel)] px-4 py-3 text-sm text-[var(--muted)]">{new Date(item.createdAt).toLocaleDateString()}</div>
-                  <div className={`bg-[color:var(--panel)] px-4 py-3 text-sm font-semibold ${alertToneClass(relatedAlert?.status ?? 'active')}`}>
-                    {relatedAlert?.status ?? 'tracking'}
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Added</div>
+                      <div className="mt-2 text-sm font-medium text-[var(--text)]">{new Date(item.createdAt).toLocaleDateString()}</div>
+                    </div>
+                    <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Priority</div>
+                      <div className={`mt-2 text-sm font-semibold ${priorityToneClass(item.priority)}`}>{item.priority}</div>
+                    </div>
+                    <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">Alert</div>
+                      <div className={`mt-2 text-sm font-semibold ${alertToneClass(relatedAlert?.status ?? 'active')}`}>{relatedAlert?.status ?? 'tracking'}</div>
+                    </div>
                   </div>
-                  <div className="bg-[color:var(--panel)] px-4 py-3">
-                    <Link className="text-sm font-medium text-[var(--text)] transition hover:text-[var(--accent)]" to={href}>
+                  <div className="mt-5 flex items-center justify-between gap-3">
+                    <div className="text-xs text-[var(--muted)]">Open the linked entity or tighten the rule set from the right rail.</div>
+                    <Link className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text)] transition hover:border-[rgba(105,211,192,0.35)] hover:text-[var(--accent)]" to={href}>
                       Open
                     </Link>
                   </div>
-                </div>
+                </Panel>
               )
             })}
-          </section>
+            {!filteredWatchlist.length ? (
+              <Panel className="lg:col-span-2">
+                <div className="text-sm text-[var(--muted)]">No tracked entities match the current filter.</div>
+              </Panel>
+            ) : null}
+          </div>
         </div>
 
         <aside className="space-y-4">
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Priority lane</div>
+          <Panel>
+            <SectionTitle eyebrow="Priority lane" title="High attention" detail="The four highest-ranked items stay surfaced here for faster scanning." />
             <div className="space-y-2">
               {coverageItems.length ? (
                 coverageItems.map((item) => (
                   <Link
-                    className="flex items-center justify-between bg-[color:var(--panel-2)] px-3 py-2.5 transition hover:bg-[color:var(--panel-3)]"
+                    className="flex items-center justify-between rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3 transition hover:border-[rgba(105,211,192,0.35)] hover:bg-[color:var(--panel-3)]"
                     key={item.id}
                     to={appApi.getEntityHref(item.entityType, item.entityId)}
                   >
                     <span className="text-sm font-medium text-[var(--text)]">{linkedLabel(seed, item.entityType === 'forecast' ? 'forecast' : item.entityType, item.entityId)}</span>
-                    <span className={`text-[11px] font-semibold ${priorityToneClass(item.priority)}`}>{item.priority}</span>
+                    <Badge tone={priorityBadgeTone(item.priority)}>{item.priority}</Badge>
                   </Link>
                 ))
               ) : (
-                <div className="bg-[color:var(--panel-2)] px-3 py-2.5 text-sm text-[var(--muted)]">No priority coverage.</div>
+                <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3 text-sm text-[var(--muted)]">No priority coverage.</div>
               )}
             </div>
-          </section>
+          </Panel>
 
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Track entity</div>
+          <Panel>
+            <SectionTitle eyebrow="Add" title="Track entity" />
             <div className="space-y-3">
               <select
                 className={fieldClass}
@@ -225,10 +262,10 @@ export const WatchlistPage = () => {
                 Update watchlist
               </button>
             </div>
-          </section>
+          </Panel>
 
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Create alert</div>
+          <Panel>
+            <SectionTitle eyebrow="Rules" title="Create alert" />
             <div className="space-y-3">
               <select
                 className={fieldClass}
@@ -281,14 +318,14 @@ export const WatchlistPage = () => {
                 Save alert rule
               </button>
             </div>
-          </section>
+          </Panel>
 
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Active rules</div>
+          <Panel>
+            <SectionTitle eyebrow="Signals" title="Active rules" />
             <div className="space-y-2">
               {activeAlerts.length ? (
                 activeAlerts.slice(0, 5).map((alert) => (
-                  <div className="bg-[color:var(--panel-2)] px-3 py-2.5" key={alert.id}>
+                  <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2.5" key={alert.id}>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-[var(--text)]">
                         {linkedLabel(seed, alert.entityType, alert.entityId)}
@@ -301,17 +338,17 @@ export const WatchlistPage = () => {
                   </div>
                 ))
               ) : (
-                <div className="bg-[color:var(--panel-2)] px-3 py-2.5 text-sm text-[var(--muted)]">No active alert rules.</div>
+                <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2.5 text-sm text-[var(--muted)]">No active alert rules.</div>
               )}
             </div>
-          </section>
+          </Panel>
 
-          <section className="bg-[color:var(--panel)] p-4">
-            <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Triggered alerts</div>
+          <Panel>
+            <SectionTitle eyebrow="Signals" title="Triggered alerts" />
             <div className="space-y-2">
               {triggeredAlerts.length ? (
                 triggeredAlerts.map((alert) => (
-                  <div className="bg-[color:var(--panel-2)] px-3 py-3" key={alert.id}>
+                  <div className="rounded-[3px] border border-[rgba(227,128,120,0.16)] bg-[color:var(--panel-2)] px-3 py-3" key={alert.id}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm font-medium text-[var(--text)]">{linkedLabel(seed, alert.entityType, alert.entityId)}</div>
                       <span className="text-[11px] font-semibold text-[var(--danger)]">Triggered</span>
@@ -322,12 +359,12 @@ export const WatchlistPage = () => {
                   </div>
                 ))
               ) : (
-                <div className="bg-[color:var(--panel-2)] px-3 py-3 text-sm text-[var(--muted)]">No triggered alerts.</div>
+                <div className="rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-3 text-sm text-[var(--muted)]">No triggered alerts.</div>
               )}
             </div>
-          </section>
+          </Panel>
         </aside>
       </div>
-    </div>
+    </Page>
   )
 }
