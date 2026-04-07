@@ -28,3 +28,15 @@ dist-ssr
 tmp/
 output/
 test-results/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.h5
+
+# Environment — never commit secrets
+.env
+
+# WSL virtual environment (local only)
+lstm_env/
