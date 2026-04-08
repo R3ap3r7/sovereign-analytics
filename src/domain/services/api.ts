@@ -92,7 +92,10 @@ const cache: BootstrapResponse = {
 let hydrated = false
 
 const setBootstrap = (payload: BootstrapResponse) => {
-  cache.seed = payload.seed
+  cache.seed = {
+    ...payload.seed,
+    pairs: payload.seed.pairs.filter(p => p && p.id && p.symbol),
+  }
   cache.currentUser = payload.currentUser
   cache.session = payload.session
   cache.visited = payload.visited
