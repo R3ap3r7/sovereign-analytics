@@ -93,14 +93,7 @@ Main tables:
 - `pair_daily_rates`
 - `admin_state`
 
-### Important note
 
-Some user preference fields exist twice:
-
-- top-level columns such as `favorite_currencies`, `favorite_pairs`, `default_account_currency`, `dashboard_preset`
-- the `settings jsonb` object on `users`
-
-That duplication appears intentional so the app can keep a full settings document while also exposing easier-to-query columns. It does, however, create a consistency risk if future code updates one representation without updating the other.
 
 ## Project shape
 
@@ -109,6 +102,4 @@ That duplication appears intentional so the app can keep a full settings documen
 - `server/db/schema.sql`: database schema
 - `server/scripts/`: manual database sync and seed entry points
 
-## Current README status
 
-This README now documents the actual application and removes the default Vite template content that was previously unrelated to the project.
