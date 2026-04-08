@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { PriceChart } from '../../components/charts/analytics'
+import { Area, CartesianGrid, XAxis, YAxis, Tooltip, Line, ComposedChart, ResponsiveContainer } from 'recharts'
+import { PriceChart, MLPathsChart } from '../../components/charts/analytics'
 import { LoadingPanel } from '../../components/ui/primitives'
 import { useAppState } from '../../app/AppState'
 import { calculateTradeOutputs, generateMonteCarloSummary } from '../../domain/calculators'
 import { appApi, getSeed } from '../../domain/services/api'
-import type { Simulation } from '../../domain/types'
+import type { Simulation, MLSimulateResponse } from '../../domain/types'
 import { formatCurrency, formatNumber, formatPercent, title } from '../../lib/utils'
 import { useAsyncResource } from '../../lib/useAsyncResource'
+import clsx from 'clsx'
 
 type EvalFrame = '1D' | '1W' | '1M' | '3M'
 type VolRegime = 'calm' | 'base' | 'elevated' | 'shock'
@@ -46,6 +48,40 @@ export const SimulationLabPage = () => {
   const [monteRisk, setMonteRisk] = useState(1.2)
   const [monteStreak] = useState(2)
 
+  const [mlHealth, setMlHealth] = React.useState<boolean | null>(null);
+  const [mlResult, setMlResult] = React.useState<MLSimulateResponse | null>(null);
+  const [mlLoading, setMlLoading] = React.useState(false);
+  const [mlError, setMlError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    appApi.checkMLHealth().then(setMlHealth);
+  }, []);
+
+  const [tapeData, setTapeData] = React.useState<{ date: string; price: number; ma20: number; ma50: number; upper: number; lower: number }[]>([]);
+  const [selectedTimeframe, setSelectedTimeframe] = React.useState('1M');
+  const windowSizeMap: Record<string, number> = { '1D': 1, '1W': 7, '1M': 30, '3M': 90, '4H': 1 };
+  const visibleTapeData = tapeData.slice(-(windowSizeMap[selectedTimeframe] ?? 30));
+
+  React.useEffect(() => {
+    // Generate 90 days of mock EURUSD data seeded from current close
+    const basePrice = 1.0850;
+    const points = Array.from({ length: 90 }, (_, i) => {
+      const noise = (Math.random() - 0.49) * 0.003;
+      const price = parseFloat((basePrice + Math.sin(i / 8) * 0.015 + noise + i * 0.00015).toFixed(5));
+      return price;
+    });
+    const data = points.map((price, i) => {
+      const slice = points.slice(Math.max(0, i - 19), i + 1);
+      const ma20 = parseFloat((slice.reduce((a, b) => a + b, 0) / slice.length).toFixed(5));
+      const sliceLong = points.slice(Math.max(0, i - 49), i + 1);
+      const ma50 = parseFloat((sliceLong.reduce((a, b) => a + b, 0) / sliceLong.length).toFixed(5));
+      const std = 0.008;
+      const date = new Date(Date.now() - (89 - i) * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return { date, price, ma20, ma50, upper: parseFloat((ma20 + 2 * std).toFixed(5)), lower: parseFloat((ma20 - 2 * std).toFixed(5)) };
+    });
+    setTapeData(data);
+  }, []);
+
   const simulation = draft ?? data?.initial ?? null
   const seed = data?.seed ?? null
   const pair = seed && simulation ? seed.pairs.find((item) => item.id === simulation.pairId)! : null
@@ -53,7 +89,7 @@ export const SimulationLabPage = () => {
   const marketSeries =
     seed && simulation
       ? seed.priceSeries.find((item) => item.pairId === simulation.pairId && item.timeframe === evalFrame) ??
-        seed.priceSeries.find((item) => item.pairId === simulation.pairId && item.timeframe === '1M')
+      seed.priceSeries.find((item) => item.pairId === simulation.pairId && item.timeframe === '1M')
       : null
 
   const outputs = useMemo(() => {
@@ -118,6 +154,29 @@ export const SimulationLabPage = () => {
     })
   }
 
+  const runMLSimulation = async () => {
+    if (!mlHealth) {
+      setMlError('ML server is offline. Ask Adi to start the FastAPI server.');
+      return;
+    }
+    setMlLoading(true);
+    setMlError(null);
+    try {
+      const result = await appApi.simulateRisk({
+        account_balance: simulation?.capital ?? 10000,
+        lot_size: simulation?.lotSize ?? 1.0,
+        leverage: simulation?.leverage ?? 100,
+        pair_id: (simulation?.pairId ?? 'EURUSD').replace('/', '').replace('-', '').toUpperCase(),
+      });
+      setMlResult(result);
+    } catch (e: any) {
+      setMlError(e.message ?? 'Unknown error from ML backend');
+    } finally {
+      setMlLoading(false);
+    }
+  };
+
+
   const sequenceResult = sequence.reduce((capital, r) => capital + capital * 0.01 * r, simulation.capital)
   const positionGuide = (simulation.capital * (monteRisk / 100)) / Math.max(outputs.riskAmount / Math.max(simulation.positionSize, 1), 0.0001)
 
@@ -170,8 +229,8 @@ export const SimulationLabPage = () => {
             <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Market tape</h2>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex gap-1 bg-[color:var(--panel-2)] p-1">
-                {(['1D', '1W', '1M', '3M'] as const).map((value) => (
-                  <button className={toneButtonClass(evalFrame === value)} key={value} onClick={() => setEvalFrame(value)} type="button">
+                {(['4H', '1D', '1W', '1M', '3M'] as const).map((value) => (
+                  <button className={toneButtonClass(selectedTimeframe === value)} key={value} onClick={() => { setSelectedTimeframe(value); if (value !== '4H') setEvalFrame(value as EvalFrame); }} type="button">
                     {value}
                   </button>
                 ))}
@@ -191,7 +250,44 @@ export const SimulationLabPage = () => {
           </div>
 
           <div className="bg-[color:var(--panel-2)] p-4">
-            {marketSeries ? <PriceChart chartMode="line" forecast={forecast} overlays={['ma', 'bands']} series={marketSeries} showForecast /> : null}
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={visibleTapeData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <defs>
+                  <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#6b7280', fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={14}
+                />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  tick={{ fill: '#6b7280', fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => v.toFixed(4)}
+                  width={60}
+                />
+                <Tooltip
+                  contentStyle={{ background: '#0f1117', border: '1px solid #1f2937', borderRadius: 8, fontSize: 11 }}
+                  labelStyle={{ color: '#9ca3af' }}
+                  formatter={(val: number, name: string) => [val.toFixed(5), name]}
+                />
+                <Area type="monotone" dataKey="upper" stroke="transparent" fill="url(#bandFill)" />
+                <Area type="monotone" dataKey="lower" stroke="transparent" fill="white" fillOpacity={0} />
+                <Line type="monotone" dataKey="upper" stroke="#4f46e5" strokeWidth={1} dot={false} strokeDasharray="4 2" name="Upper band" />
+                <Line type="monotone" dataKey="lower" stroke="#4f46e5" strokeWidth={1} dot={false} strokeDasharray="4 2" name="Lower band" />
+                <Line type="monotone" dataKey="ma20" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="MA20" />
+                <Line type="monotone" dataKey="ma50" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="MA50" />
+                <Line type="monotone" dataKey="price" stroke="#10b981" strokeWidth={2} dot={false} name="Price" />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
 
           <div className="grid gap-2 md:grid-cols-4">
@@ -206,6 +302,64 @@ export const SimulationLabPage = () => {
                 <div className={`mt-2 text-lg font-bold tabular-nums ${tone}`}>{value}</div>
               </div>
             ))}
+          </div>
+
+          {/* ML Risk Engine Panel */}
+          <div className="mt-6 rounded-xl border border-neutral-700 bg-neutral-900 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-white uppercase tracking-widest">
+                AI Risk Engine
+              </h3>
+              <span className={clsx(
+                'text-xs px-2 py-1 rounded-full font-medium',
+                mlHealth === null && 'bg-neutral-700 text-neutral-400',
+                mlHealth === true && 'bg-emerald-900 text-emerald-400',
+                mlHealth === false && 'bg-red-900 text-red-400',
+              )}>
+                {mlHealth === null ? 'Checking...' : mlHealth ? 'ML Server Online' : 'ML Server Offline'}
+              </span>
+            </div>
+
+            <button
+              onClick={runMLSimulation}
+              disabled={mlLoading || mlHealth === false}
+              className="w-full px-4 py-2.5 rounded-lg bg-[var(--accent)] text-[color:var(--bg)] text-sm font-semibold transition hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {mlLoading ? 'Running LSTM + Monte Carlo...' : 'Run AI Risk Simulation'}
+            </button>
+
+            {mlError && (
+              <p className="mt-3 text-xs text-red-400">{mlError}</p>
+            )}
+
+            {mlResult && (
+              <div className="mt-4 space-y-3">
+                <div className={clsx(
+                  'text-center py-3 rounded-lg font-bold text-lg',
+                  mlResult.risk_status === 'LOW' && 'bg-emerald-900/50 text-emerald-400',
+                  mlResult.risk_status === 'MEDIUM' && 'bg-amber-900/50 text-amber-400',
+                  mlResult.risk_status === 'HIGH' && 'bg-red-900/50 text-red-400',
+                )}>
+                  {mlResult.risk_status} RISK — {(mlResult.margin_call_probability * 100).toFixed(1)}% Margin Call Probability
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {[
+                    ['Predicted Move', `${mlResult.predicted_pip_move > 0 ? '+' : ''}${mlResult.predicted_pip_move} pips`],
+                    ['Margin Required', `$${mlResult.margin_required.toFixed(2)}`],
+                    ['MC Threshold', `${mlResult.margin_call_threshold_pips.toFixed(1)} pips`],
+                    ['Current Close', mlResult.current_close.toFixed(5)],
+                    ['Paths Simulated', mlResult.n_paths_simulated.toLocaleString()],
+                    ['Volatility (σ)', `${mlResult.sigma_used.toFixed(2)} pips`],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-neutral-800 rounded-lg p-2">
+                      <div className="text-neutral-500">{label}</div>
+                      <div className="text-white font-medium mt-0.5">{value}</div>
+                    </div>
+                  ))}
+                </div>
+                <MLPathsChart paths={mlResult.sampled_paths} threshold={mlResult.margin_call_threshold_pips} />
+              </div>
+            )}
           </div>
         </section>
 

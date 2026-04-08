@@ -520,3 +520,31 @@ export interface SeedData {
   alerts: AlertRule[]
   notes: Note[]
 }
+
+export interface MLSimulateRequest {
+  account_balance: number;
+  lot_size: number;
+  leverage: number;
+  pair_id: string;
+}
+
+export interface MLSimulateResponse {
+  pair_id: string;
+  predicted_pip_move: number;
+  margin_call_probability: number;
+  margin_call_threshold_pips: number;
+  pip_value_per_pip: number;
+  margin_required: number;
+  risk_status: 'LOW' | 'MEDIUM' | 'HIGH';
+  sampled_paths: number[];
+  n_paths_simulated: number;
+  sigma_used: number;
+  current_close: number;
+}
+
+export interface MLHealthResponse {
+  status: string;
+  model_loaded: boolean;
+  pair: string;
+}
+

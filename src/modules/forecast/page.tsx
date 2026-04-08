@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ForecastChart } from '../../components/charts/analytics'
+import { ForecastChart, buildFallbackDailyPath } from '../../components/charts/analytics'
 import { LoadingPanel } from '../../components/ui/primitives'
 import { appApi, getSeed } from '../../domain/services/api'
 import { formatNumber, formatPercent } from '../../lib/utils'
@@ -45,8 +45,11 @@ export const ForecastPage = () => {
   const ranked = [...data].sort((a, b) => b.forecast.confidence - a.forecast.confidence)
   const basePath = selected.forecast.basePath
   const spotPrice = selected.forecast.spotPrice ?? selected.forecast.dailyPath?.[0]?.value ?? basePath[0]?.value ?? 0
-  const selectedWindowPoint = selected.forecast.dailyPath?.[Math.min(windowDays, selected.forecast.dailyPath.length) - 1]
-  const projectedValue = selectedWindowPoint?.value ?? basePath.at(-1)?.value ?? spotPrice
+  const activeDailyPath = selected.forecast.dailyPath?.length
+    ? selected.forecast.dailyPath
+    : buildFallbackDailyPath(selected.forecast)
+  const selectedWindowPoint = activeDailyPath[Math.min(windowDays, activeDailyPath.length) - 1]
+  const projectedValue = selectedWindowPoint?.value ?? spotPrice
   const projectedMovePct = spotPrice ? ((projectedValue - spotPrice) / spotPrice) * 100 : 0
   const projectedMoveBps = spotPrice ? ((projectedValue - spotPrice) / spotPrice) * 10000 : 0
   const uncertaintyMax = Math.max(...selected.forecast.uncertaintyCurve)
@@ -54,7 +57,7 @@ export const ForecastPage = () => {
   const driverEntries = Object.entries(selected.forecast.driverImportance).sort(([, a], [, b]) => b - a)
   const maxDriverValue = Math.max(...driverEntries.map(([, value]) => value), 1)
   const modelMeta = selected.forecast.model
-  const dailyPreview = (selected.forecast.dailyPath ?? [])
+  const dailyPreview = activeDailyPath
     .slice(0, Math.min(windowDays, 12))
     .map((point) => {
       const movePct = spotPrice ? ((point.value - spotPrice) / spotPrice) * 100 : 0
