@@ -6,10 +6,13 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
   ReferenceLine,
+  ResponsiveContainer,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -205,6 +208,32 @@ const ForecastTooltip = ({
   )
 }
 
+export const buildFallbackDailyPath = (input: Forecast) => {
+  const anchors = [0, 5, 21, 63]
+  const values = [
+    input.spotPrice ?? input.basePath[0]?.value ?? 0,
+    ...(input.basePath.map((point) => point.value)),
+  ]
+  const uncertainties = [0, ...(input.uncertaintyCurve ?? [])]
+
+  return Array.from({ length: 63 }, (_, index) => {
+    const day = index + 1
+    const nextIndex = anchors.findIndex((anchor) => anchor >= day)
+    const upperIndex = nextIndex === -1 ? anchors.length - 1 : nextIndex
+    const lowerIndex = Math.max(0, upperIndex - 1)
+    const ratio = (day - anchors[lowerIndex]) / Math.max(1, anchors[upperIndex] - anchors[lowerIndex])
+    const lowerLog = Math.log(values[lowerIndex] || values[0] || 1)
+    const upperLog = Math.log(values[upperIndex] || values.at(-1) || 1)
+    return {
+      day,
+      date: `D+${day}`,
+      label: `D+${day}`,
+      value: Number(Math.exp(lowerLog + ((upperLog - lowerLog) * ratio)).toFixed(5)),
+      uncertainty: Number(((uncertainties[lowerIndex] ?? 0) + (((uncertainties[upperIndex] ?? 0) - (uncertainties[lowerIndex] ?? 0)) * ratio)).toFixed(5)),
+    } satisfies ForecastDailyPoint
+  })
+}
+
 export const ForecastChart = ({
   forecast,
   windowDays = 21,
@@ -220,32 +249,6 @@ export const ForecastChart = ({
   displayPrecision?: number
   showRange?: boolean
 }) => {
-  const buildFallbackDailyPath = (input: Forecast) => {
-    const anchors = [0, 5, 21, 63]
-    const values = [
-      input.spotPrice ?? input.basePath[0]?.value ?? 0,
-      ...(input.basePath.map((point) => point.value)),
-    ]
-    const uncertainties = [0, ...(input.uncertaintyCurve ?? [])]
-
-    return Array.from({ length: 63 }, (_, index) => {
-      const day = index + 1
-      const nextIndex = anchors.findIndex((anchor) => anchor >= day)
-      const upperIndex = nextIndex === -1 ? anchors.length - 1 : nextIndex
-      const lowerIndex = Math.max(0, upperIndex - 1)
-      const ratio = (day - anchors[lowerIndex]) / Math.max(1, anchors[upperIndex] - anchors[lowerIndex])
-      const lowerLog = Math.log(values[lowerIndex] || values[0] || 1)
-      const upperLog = Math.log(values[upperIndex] || values.at(-1) || 1)
-      return {
-        day,
-        date: `D+${day}`,
-        label: `D+${day}`,
-        value: Number(Math.exp(lowerLog + ((upperLog - lowerLog) * ratio)).toFixed(5)),
-        uncertainty: Number(((uncertainties[lowerIndex] ?? 0) + (((uncertainties[upperIndex] ?? 0) - (uncertainties[lowerIndex] ?? 0)) * ratio)).toFixed(5)),
-      } satisfies ForecastDailyPoint
-    })
-  }
-
   const dailyPath = (forecast.dailyPath?.length ? forecast.dailyPath : buildFallbackDailyPath(forecast)).slice(0, windowDays)
   const spotPrice = forecast.spotPrice ?? dailyPath[0]?.value ?? forecast.basePath[0]?.value ?? 0
   const data = dailyPath.map((point) => {
@@ -345,4 +348,27 @@ export const PerformanceChart = ({
       ) : null}
     </div>
   )
+}
+
+export function MLPathsChart({ paths, threshold }: { paths: number[]; threshold: number }) {
+  const data = paths.map((value, index) => ({ index, value }));
+  const minVal = Math.min(...paths, threshold) - 5;
+  const maxVal = Math.max(...paths) + 5;
+  return (
+    <div className="mt-2">
+      <p className="text-xs text-neutral-500 mb-1">Monte Carlo Path Distribution (200 samples)</p>
+      <ResponsiveContainer width="100%" height={120}>
+        <ComposedChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+          <YAxis domain={[minVal, maxVal]} hide />
+          <Tooltip
+            formatter={(val: any) => [`${Number(val).toFixed(1)} pips`, 'Simulated Move']}
+            contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 6 }}
+            labelStyle={{ display: 'none' }}
+          />
+          <Scatter dataKey="value" fill="#8b5cf6" opacity={0.4} />
+          <ReferenceLine y={threshold} stroke="#ef4444" strokeDasharray="4 2" label={{ value: 'MC', fill: '#ef4444', fontSize: 10 }} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }

@@ -16,6 +16,9 @@ import {
 import type {
   AdminMarketMutation,
   AlertRule,
+  MLHealthResponse,
+  MLSimulateRequest,
+  MLSimulateResponse,
   Note,
   PortfolioJournal,
   PortfolioPosition,
@@ -477,6 +480,28 @@ export const appApi = {
       cache.seed.positions.filter((item) => portfolio.openPositionIds.includes(item.id)),
       cache.seed.positions.filter((item) => portfolio.closedPositionIds.includes(item.id)),
     )
+  },
+  async checkMLHealth(): Promise<boolean> {
+    try {
+      const res = await fetch('http://localhost:8000/health');
+      if (!res.ok) return false;
+      const data: MLHealthResponse = await res.json();
+      return data.status === 'ok' && data.model_loaded === true;
+    } catch {
+      return false;
+    }
+  },
+  async simulateRisk(payload: MLSimulateRequest): Promise<MLSimulateResponse> {
+    const res = await fetch('http://localhost:8000/simulate-risk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`ML backend error: ${err}`);
+    }
+    return res.json();
   },
 }
 
