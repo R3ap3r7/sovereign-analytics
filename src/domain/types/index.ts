@@ -235,6 +235,7 @@ export interface ForecastModelHorizon {
   horizon: string
   horizonDays: number
   family: string
+  aggregation?: 'mean' | 'median'
   lambda: number
   features: string[]
   validation: ForecastEvaluationMetrics

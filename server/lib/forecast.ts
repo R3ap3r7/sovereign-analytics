@@ -98,6 +98,7 @@ type TrainedHorizonModel = {
   horizon: ModelHorizonLabel
   horizonDays: number
   family: string
+  aggregation: 'mean' | 'median'
   lambda: number
   features: FeatureKey[]
   validation: ForecastEvaluationMetrics
@@ -118,6 +119,28 @@ const variance = (values: number[]) => {
 const stdev = (values: number[]) => Math.sqrt(variance(values))
 
 const averageAbsolute = (values: number[]) => (values.length ? values.reduce((total, value) => total + Math.abs(value), 0) / values.length : 0)
+
+const weightedMedian = (pairs: Array<{ value: number; weight: number }>) => {
+  if (!pairs.length) return 0
+  const sorted = [...pairs].sort((left, right) => left.value - right.value)
+  const totalWeight = sorted.reduce((sum, item) => sum + item.weight, 0) || 1
+  let cumulative = 0
+  for (const item of sorted) {
+    cumulative += item.weight
+    if (cumulative >= totalWeight / 2) return item.value
+  }
+  return sorted.at(-1)?.value ?? 0
+}
+
+const aggregateMemberPredictions = (
+  values: Array<{ value: number; weight: number }>,
+  aggregation: 'mean' | 'median',
+) => {
+  if (!values.length) return 0
+  if (aggregation === 'median') return weightedMedian(values)
+  const totalWeight = values.reduce((sum, item) => sum + item.weight, 0) || 1
+  return values.reduce((sum, item) => sum + (item.value * item.weight), 0) / totalWeight
+}
 
 const zeros = (rows: number, columns: number) =>
   Array.from({ length: rows }, () => Array.from({ length: columns }, () => 0))
@@ -349,23 +372,53 @@ const trainBestModelForHorizon = (samples: Sample[], horizon: (typeof MODEL_HORI
     const metric = candidate.validation
     return clamp(metric.directionalAccuracy, 0.35, 0.95) / Math.max(metric.rmseBps, 1)
   })
+  let selectedAggregation: 'mean' | 'median' = 'mean'
+  let selectedValidationMetrics = bestSingle.validation
 
   if (selectedCandidates.length > 1) {
-    const validationPredictions = split.validation.map((sample) =>
-      selectedCandidates.reduce((sum, candidate, index) => {
-        const row = candidate.features.map((feature) => sample.features[feature])
-        return sum + rawWeights[index] * predictWithRidge(candidate.validationModel, row)
-      }, 0) / (rawWeights.reduce((sum, value) => sum + value, 0) || 1),
+    const validationTargets = split.validation.map((sample) => sample.targets[horizon.label])
+    const validationPrices = split.validation.map((sample) => sample.currentPrice)
+    const meanValidationPredictions = split.validation.map((sample) =>
+      aggregateMemberPredictions(
+        selectedCandidates.map((candidate, index) => ({
+          weight: rawWeights[index],
+          value: predictWithRidge(
+            candidate.validationModel,
+            candidate.features.map((feature) => sample.features[feature]),
+          ),
+        })),
+        'mean',
+      ),
     )
-    const validationMetrics = scorePredictions(
-      validationPredictions,
-      split.validation.map((sample) => sample.targets[horizon.label]),
-      split.validation.map((sample) => sample.currentPrice),
+    const medianValidationPredictions = split.validation.map((sample) =>
+      aggregateMemberPredictions(
+        selectedCandidates.map((candidate, index) => ({
+          weight: rawWeights[index],
+          value: predictWithRidge(
+            candidate.validationModel,
+            candidate.features.map((feature) => sample.features[feature]),
+          ),
+        })),
+        'median',
+      ),
     )
-    if (modelScore(validationMetrics) > modelScore(bestSingle.validation)) {
+    const meanValidationMetrics = scorePredictions(meanValidationPredictions, validationTargets, validationPrices)
+    const medianValidationMetrics = scorePredictions(medianValidationPredictions, validationTargets, validationPrices)
+    const ensembleAggregation = modelScore(medianValidationMetrics) < modelScore(meanValidationMetrics) ? 'median' : 'mean'
+    const ensembleValidationMetrics = ensembleAggregation === 'median' ? medianValidationMetrics : meanValidationMetrics
+
+    if (modelScore(ensembleValidationMetrics) > modelScore(bestSingle.validation)) {
       selectedCandidates = [bestSingle]
       rawWeights = [1]
+      selectedAggregation = 'mean'
+      selectedValidationMetrics = bestSingle.validation
+    } else {
+      selectedAggregation = ensembleAggregation
+      selectedValidationMetrics = ensembleValidationMetrics
     }
+  } else {
+    selectedAggregation = 'mean'
+    selectedValidationMetrics = bestSingle.validation
   }
 
   const weightTotal = rawWeights.reduce((sum, value) => sum + value, 0) || 1
@@ -388,10 +441,12 @@ const trainBestModelForHorizon = (samples: Sample[], horizon: (typeof MODEL_HORI
   })
 
   const testPredictions = split.test.map((sample) =>
-    members.reduce(
-      (sum, member) =>
-        sum + member.weight * predictWithRidge(member.model, member.features.map((feature) => sample.features[feature])),
-      0,
+    aggregateMemberPredictions(
+      members.map((member) => ({
+        weight: member.weight,
+        value: predictWithRidge(member.model, member.features.map((feature) => sample.features[feature])),
+      })),
+      selectedAggregation,
     ),
   )
   const testMetrics = scorePredictions(testPredictions, testTargets, testPrices)
@@ -409,20 +464,14 @@ const trainBestModelForHorizon = (samples: Sample[], horizon: (typeof MODEL_HORI
   })
 
   const mergedFeatures = Array.from(new Set(deploymentMembers.flatMap((member) => member.features)))
-  const validationSummary: ForecastEvaluationMetrics = {
-    rmseBps: Number(mean(selectedCandidates.map((candidate) => candidate.validation.rmseBps)).toFixed(2)),
-    maeBps: Number(mean(selectedCandidates.map((candidate) => candidate.validation.maeBps)).toFixed(2)),
-    mape: Number(mean(selectedCandidates.map((candidate) => candidate.validation.mape)).toFixed(2)),
-    directionalAccuracy: Number(mean(selectedCandidates.map((candidate) => candidate.validation.directionalAccuracy)).toFixed(4)),
-  }
-
   return {
     horizon: horizon.label,
     horizonDays: horizon.days,
     family: deploymentMembers.length > 1 ? 'ensemble' : deploymentMembers[0]!.family,
+    aggregation: selectedAggregation,
     lambda: deploymentMembers.length > 1 ? 0 : deploymentMembers[0]!.lambda,
     features: mergedFeatures,
-    validation: validationSummary,
+    validation: selectedValidationMetrics,
     test: testMetrics,
     members: deploymentMembers,
   } satisfies TrainedHorizonModel
@@ -504,32 +553,55 @@ const buildInterpolatedDailyPath = (
   })
 }
 
+const buildDailyUncertaintyProfile = (dailyModel: TrainedHorizonModel, models: TrainedHorizonModel[]) => {
+  const base = Math.max(dailyModel.test.rmseBps / 10000, 0.00075)
+  const byHorizon = new Map(models.map((model) => [model.horizon, Math.max(model.test.rmseBps / 10000, base)]))
+  const anchors = [
+    { day: 1, uncertainty: base },
+    { day: 5, uncertainty: byHorizon.get('1W') ?? base * 1.35 },
+    { day: 21, uncertainty: byHorizon.get('1M') ?? base * 1.9 },
+    { day: 63, uncertainty: byHorizon.get('3M') ?? base * 2.6 },
+  ].map((anchor, index, source) => ({
+    day: anchor.day,
+    uncertainty: index === 0 ? anchor.uncertainty : Math.max(anchor.uncertainty, source[index - 1]!.uncertainty),
+  }))
+
+  return Array.from({ length: 63 }, (_, index) => {
+    const day = index + 1
+    const nextIndex = anchors.findIndex((anchor) => anchor.day >= day)
+    const upperIndex = nextIndex === -1 ? anchors.length - 1 : nextIndex
+    const lowerIndex = Math.max(0, upperIndex - 1)
+    const lowerAnchor = anchors[lowerIndex]!
+    const upperAnchor = anchors[upperIndex]!
+    const ratio = clamp((day - lowerAnchor.day) / Math.max(1, upperAnchor.day - lowerAnchor.day), 0, 1)
+    return Number((lowerAnchor.uncertainty + ((upperAnchor.uncertainty - lowerAnchor.uncertainty) * ratio)).toFixed(5))
+  })
+}
+
 const buildRecursiveDailyForecastPath = (
   pair: Pair,
   lastObservation: string,
   history: HistoryPoint[],
   dailyModel: TrainedHorizonModel,
+  dailyUncertaintyProfile: number[],
 ): ForecastDailyPoint[] => {
   const closes = history.map((point) => point.value)
   const logs = closes.map((value) => Math.log(value))
   const returns = logs.map((value, index) => (index === 0 ? 0 : value - logs[index - 1]))
   const maxDays = HORIZONS.at(-1)?.days ?? 63
-  const baseUncertainty = Math.max(dailyModel.test.rmseBps / 10000, 0.00075)
 
   return Array.from({ length: maxDays }, (_, index) => {
     const day = index + 1
     const featureIndex = logs.length - 1
     const features = buildFeatureSet(logs, returns, featureIndex)
     const recentVol = Math.max(stdev(returns.slice(-21)), 0.001)
-    const predictedReturn = clamp(
-      dailyModel.members.reduce(
-        (sum, member) =>
-          sum + member.weight * predictWithRidge(member.model, member.features.map((feature) => features[feature])),
-        0,
-      ),
-      -recentVol * 2.5,
-      recentVol * 2.5,
-    )
+    const predictedReturn = clamp(aggregateMemberPredictions(
+      dailyModel.members.map((member) => ({
+        weight: member.weight,
+        value: predictWithRidge(member.model, member.features.map((feature) => features[feature])),
+      })),
+      dailyModel.aggregation,
+    ), -recentVol * 2.5, recentVol * 2.5)
     const nextLog = logs[featureIndex] + predictedReturn
     logs.push(nextLog)
     const nextClose = Math.exp(nextLog)
@@ -542,7 +614,7 @@ const buildRecursiveDailyForecastPath = (
       date,
       label: date,
       value: Number(nextClose.toFixed(pair.displayPrecision + 1)),
-      uncertainty: Number((baseUncertainty * Math.sqrt(day)).toFixed(5)),
+      uncertainty: dailyUncertaintyProfile[index] ?? dailyUncertaintyProfile.at(-1) ?? 0.00075,
     }
   })
 }
@@ -560,7 +632,8 @@ const trainForecastForPair = (pair: Pair, history: HistoryPoint[]): Forecast | n
   if (!latestSample || !lastPrice) return null
 
   const lastObservation = history.at(-1)?.date ?? new Date().toISOString().slice(0, 10)
-  const dailyPath = buildRecursiveDailyForecastPath(pair, lastObservation, history, dailyModel)
+  const dailyUncertaintyProfile = buildDailyUncertaintyProfile(dailyModel, models)
+  const dailyPath = buildRecursiveDailyForecastPath(pair, lastObservation, history, dailyModel, dailyUncertaintyProfile)
   const basePath = HORIZONS.map((horizon) => ({
     horizon: horizon.label,
     value: dailyPath[horizon.days - 1]?.value ?? lastPrice,
@@ -588,6 +661,7 @@ const trainForecastForPair = (pair: Pair, history: HistoryPoint[]): Forecast | n
           horizon: model.horizon,
           horizonDays: model.horizonDays,
           family: model.family,
+          aggregation: model.aggregation,
           lambda: model.lambda,
           features: model.features,
           validation: model.validation,

@@ -33,7 +33,8 @@ export const ForecastPage = () => {
   const [selectedPairId, setSelectedPairId] = useState('eur-usd')
   const [windowDays, setWindowDays] = useState(21)
   const [bandScale, setBandScale] = useState(1)
-  const [displayMode, setDisplayMode] = useState<'price' | 'move'>('move')
+  const [displayMode, setDisplayMode] = useState<'price' | 'move'>('price')
+  const [showRange, setShowRange] = useState(false)
 
   const selected = useMemo(
     () => data?.find((item) => item.pair.id === selectedPairId) ?? data?.[0] ?? null,
@@ -49,11 +50,10 @@ export const ForecastPage = () => {
   const projectedValue = selectedWindowPoint?.value ?? basePath.at(-1)?.value ?? spotPrice
   const projectedMovePct = spotPrice ? ((projectedValue - spotPrice) / spotPrice) * 100 : 0
   const projectedMoveBps = spotPrice ? ((projectedValue - spotPrice) / spotPrice) * 10000 : 0
-  const uncertaintyMax = Math.max(...selected.forecast.uncertaintyCurve)
-  const selectedUncertainty = (selectedWindowPoint?.uncertainty ?? uncertaintyMax) * bandScale
   const driverEntries = Object.entries(selected.forecast.driverImportance).sort(([, a], [, b]) => b - a)
   const maxDriverValue = Math.max(...driverEntries.map(([, value]) => value), 1)
   const modelMeta = selected.forecast.model
+  const pointMethod = modelMeta?.horizons.find((horizon) => horizon.horizon === '1D')?.aggregation ?? 'mean'
   const dailyPreview = (selected.forecast.dailyPath ?? [])
     .slice(0, Math.min(windowDays, 12))
     .map((point) => {
@@ -69,9 +69,9 @@ export const ForecastPage = () => {
   const direction = projectedValue >= spotPrice ? 'Bullish' : 'Bearish'
   const diagnosticRows = [
     {
-      label: 'Band width',
-      value: selectedUncertainty < 0.015 ? 'Tight' : selectedUncertainty < 0.03 ? 'Balanced' : 'Wide',
-      width: Math.min(100, Math.max(16, selectedUncertainty * 1800)),
+      label: 'Point method',
+      value: pointMethod === 'median' ? 'Robust median' : 'Weighted mean',
+      width: pointMethod === 'median' ? 78 : 58,
       tone: 'accent',
     },
     {
@@ -162,7 +162,7 @@ export const ForecastPage = () => {
             <div>
               <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Daily forecast path</h2>
               <p className="mt-2 text-sm text-[var(--muted)]">
-                {windowDays}-day projected close path with model-driven uncertainty. Hover any day for the expected close, band width, and change versus current spot.
+                {windowDays}-day point forecast path. The confidence range is optional and hidden by default so the chart stays focused on the most likely daily close path.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -175,18 +175,29 @@ export const ForecastPage = () => {
                 <option value="move">Move (bps)</option>
               </select>
               <label className="flex items-center gap-3 bg-[color:var(--panel-2)] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                <span>Band</span>
                 <input
+                  checked={showRange}
                   className="accent-[var(--accent)]"
-                  max="1.8"
-                  min="0.6"
-                  onChange={(event) => setBandScale(Number(event.target.value))}
-                  step="0.1"
-                  type="range"
-                  value={bandScale}
+                  onChange={(event) => setShowRange(event.target.checked)}
+                  type="checkbox"
                 />
-                <span className="min-w-[3rem] text-right font-bold text-[var(--text)]">{bandScale.toFixed(1)}x</span>
+                <span>Show range</span>
               </label>
+              {showRange ? (
+                <label className="flex items-center gap-3 bg-[color:var(--panel-2)] px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+                  <span>Range</span>
+                  <input
+                    className="accent-[var(--accent)]"
+                    max="1.4"
+                    min="0.7"
+                    onChange={(event) => setBandScale(Number(event.target.value))}
+                    step="0.1"
+                    type="range"
+                    value={bandScale}
+                  />
+                  <span className="min-w-[3rem] text-right font-bold text-[var(--text)]">{bandScale.toFixed(1)}x</span>
+                </label>
+              ) : null}
             </div>
           </div>
           <div className="min-h-[420px] bg-[linear-gradient(90deg,rgba(123,208,255,0.08)_0%,rgba(105,211,192,0.03)_100%)] p-4">
@@ -195,6 +206,7 @@ export const ForecastPage = () => {
               displayMode={displayMode}
               displayPrecision={selected.pair.displayPrecision}
               forecast={selected.forecast}
+              showRange={showRange}
               windowDays={windowDays}
             />
           </div>
@@ -330,8 +342,8 @@ export const ForecastPage = () => {
                 <th className="pb-3">Date</th>
                 <th className="pb-3">Projected close</th>
                 <th className="pb-3">Move</th>
-                <th className="pb-3">Lower band</th>
-                <th className="pb-3">Upper band</th>
+                {showRange ? <th className="pb-3">Lower band</th> : null}
+                {showRange ? <th className="pb-3">Upper band</th> : null}
               </tr>
             </thead>
             <tbody className="text-xs">
@@ -343,8 +355,8 @@ export const ForecastPage = () => {
                   <td className={point.movePct >= 0 ? 'py-3 tabular-nums text-[var(--success)]' : 'py-3 tabular-nums text-[var(--danger)]'}>
                     {point.moveBps >= 0 ? '+' : ''}{formatNumber(point.moveBps, 0)} bps
                   </td>
-                  <td className="py-3 tabular-nums text-[var(--muted)]">{formatNumber(point.lower, selected.pair.displayPrecision)}</td>
-                  <td className="py-3 tabular-nums text-[var(--accent)]">{formatNumber(point.upper, selected.pair.displayPrecision)}</td>
+                  {showRange ? <td className="py-3 tabular-nums text-[var(--muted)]">{formatNumber(point.lower, selected.pair.displayPrecision)}</td> : null}
+                  {showRange ? <td className="py-3 tabular-nums text-[var(--accent)]">{formatNumber(point.upper, selected.pair.displayPrecision)}</td> : null}
                 </tr>
               ))}
             </tbody>
@@ -388,6 +400,7 @@ export const ForecastPage = () => {
                   <tr className="border-b border-[color:rgba(141,164,179,0.16)] text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted)]">
                     <th className="pb-3">Horizon</th>
                     <th className="pb-3">Family</th>
+                    <th className="pb-3">Point</th>
                     <th className="pb-3">Features</th>
                     <th className="pb-3">Dir. acc.</th>
                     <th className="pb-3">RMSE</th>
@@ -399,6 +412,7 @@ export const ForecastPage = () => {
                     <tr className="border-b border-[color:rgba(141,164,179,0.08)] align-top" key={horizon.horizon}>
                       <td className="py-3 font-bold text-[var(--text)]">{horizon.horizon}</td>
                       <td className="py-3 capitalize text-[var(--accent)]">{horizon.family}</td>
+                      <td className="py-3 capitalize text-[var(--text)]">{horizon.aggregation ?? 'mean'}</td>
                       <td className="py-3 text-[var(--muted)]">{horizon.features.join(', ')}</td>
                       <td className="py-3 font-medium tabular-nums text-[var(--text)]">{formatPercent(horizon.test.directionalAccuracy, 1)}</td>
                       <td className="py-3 tabular-nums text-[var(--text)]">{formatNumber(horizon.test.rmseBps, 2)} bps</td>
@@ -418,7 +432,9 @@ export const ForecastPage = () => {
           <div className="flex gap-4">
             {ranked.map(({ forecast, pair }) => {
               const start = forecast.spotPrice ?? forecast.dailyPath?.[0]?.value ?? forecast.basePath[0]?.value ?? 0
-              const end = forecast.basePath.at(-1)?.value ?? start
+              const end = forecast.dailyPath?.[Math.min(windowDays, forecast.dailyPath.length) - 1]?.value
+                ?? forecast.basePath.at(-1)?.value
+                ?? start
               const projectedDelta = start ? ((end - start) / start) * 100 : 0
               const toneClass =
                 projectedDelta > 0.05

@@ -135,12 +135,14 @@ const ForecastTooltip = ({
   label,
   displayMode,
   displayPrecision,
+  showRange,
 }: {
   active?: boolean
   payload?: Array<{ payload: Record<string, number | string> }>
   label?: string
   displayMode: 'price' | 'move'
   displayPrecision: number
+  showRange: boolean
 }) => {
   if (!active || !payload?.length) return null
   const point = payload[0]?.payload as {
@@ -173,27 +175,31 @@ const ForecastTooltip = ({
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[var(--muted)]">Mean</span>
+          <span className="text-[var(--muted)]">Forecast</span>
           <span className="font-semibold text-[var(--text)]">
             {displayMode === 'price' ? formatNumber(point.base, displayPrecision) : `${point.moveBps >= 0 ? '+' : ''}${formatNumber(point.moveBps, 0)} bps`}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[var(--muted)]">Upper</span>
-          <span className="font-semibold text-[var(--success)]">
-            {displayMode === 'price' ? formatNumber(point.upper, displayPrecision) : `${point.upperMoveBps >= 0 ? '+' : ''}${formatNumber(point.upperMoveBps, 0)} bps`}
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[var(--muted)]">Lower</span>
-          <span className="font-semibold text-[var(--danger)]">
-            {displayMode === 'price' ? formatNumber(point.lower, displayPrecision) : `${point.lowerMoveBps >= 0 ? '+' : ''}${formatNumber(point.lowerMoveBps, 0)} bps`}
-          </span>
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-3 border-t border-[color:rgba(141,164,179,0.12)] pt-2">
-          <span className="text-[var(--muted)]">Band width</span>
-          <span className="font-semibold text-[var(--warning)]">{formatNumber(point.uncertaintyBps, 0)} bps</span>
-        </div>
+        {showRange ? (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[var(--muted)]">Upper</span>
+              <span className="font-semibold text-[var(--success)]">
+                {displayMode === 'price' ? formatNumber(point.upper, displayPrecision) : `${point.upperMoveBps >= 0 ? '+' : ''}${formatNumber(point.upperMoveBps, 0)} bps`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[var(--muted)]">Lower</span>
+              <span className="font-semibold text-[var(--danger)]">
+                {displayMode === 'price' ? formatNumber(point.lower, displayPrecision) : `${point.lowerMoveBps >= 0 ? '+' : ''}${formatNumber(point.lowerMoveBps, 0)} bps`}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3 border-t border-[color:rgba(141,164,179,0.12)] pt-2">
+              <span className="text-[var(--muted)]">Band width</span>
+              <span className="font-semibold text-[var(--warning)]">{formatNumber(point.uncertaintyBps, 0)} bps</span>
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   )
@@ -205,12 +211,14 @@ export const ForecastChart = ({
   bandScale = 1,
   displayMode = 'price',
   displayPrecision = 4,
+  showRange = false,
 }: {
   forecast: Forecast
   windowDays?: number
   bandScale?: number
   displayMode?: 'price' | 'move'
   displayPrecision?: number
+  showRange?: boolean
 }) => {
   const buildFallbackDailyPath = (input: Forecast) => {
     const anchors = [0, 5, 21, 63]
@@ -259,7 +267,7 @@ export const ForecastChart = ({
       lowerMoveBps: toBps(lower),
     }
   })
-  const values = data.flatMap((point) => [point.lower, point.base, point.upper])
+  const values = data.flatMap((point) => (showRange ? [point.lower, point.base, point.upper] : [point.base]))
   const minValue = Math.min(...values)
   const maxValue = Math.max(...values)
   const span = Math.max(maxValue - minValue, displayMode === 'price' ? Math.max(spotPrice * 0.0025, 0.0001) : 12)
@@ -294,6 +302,7 @@ export const ForecastChart = ({
               <ForecastTooltip
                 displayMode={displayMode}
                 displayPrecision={displayPrecision}
+                showRange={showRange}
               />
             )}
             cursor={{ stroke: 'rgba(123, 208, 255, 0.3)', strokeWidth: 1 }}
@@ -304,8 +313,8 @@ export const ForecastChart = ({
             strokeDasharray="4 4"
             y={referenceValue}
           />
-          <Area dataKey="bandBase" fill="transparent" stackId="forecast-band-stack" stroke="transparent" />
-          <Area dataKey="bandSize" fill="url(#forecast-band)" stackId="forecast-band-stack" stroke="transparent" />
+          {showRange ? <Area dataKey="bandBase" fill="transparent" stackId="forecast-band-stack" stroke="transparent" /> : null}
+          {showRange ? <Area dataKey="bandSize" fill="url(#forecast-band)" stackId="forecast-band-stack" stroke="transparent" /> : null}
           <Line activeDot={{ r: 5, stroke: '#0a1016', strokeWidth: 1.5 }} dataKey="base" dot={false} stroke="url(#forecast-line)" strokeWidth={2.5} type="monotone" />
         </AreaChart>
       ) : null}
