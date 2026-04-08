@@ -15,6 +15,9 @@ from tabulate import tabulate
 # Enable ANSI escape sequences on Windows
 if os.name == 'nt':
     os.system('')
+    # Ensure UTF-8 output for Windows terminals
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
 
 try:
     import readline
