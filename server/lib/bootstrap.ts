@@ -179,6 +179,8 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
       )
     : { rows: [] }
 
+  const validPairs = pairs.filter((p: Pair) => p && p.id && p.symbol)
+
   const dailyRatesResult = await database.query<{ pair_id: string; traded_on: string; close_rate: string }>(
     'select pair_id, traded_on::text, close_rate::text from pair_daily_rates order by pair_id asc, traded_on asc',
   )
@@ -189,11 +191,11 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
     historyByPair.set(row.pair_id, next)
   })
 
-  const priceSeries = pairs.flatMap((pair: Pair) => derivePriceSeries(pair, historyByPair.get(pair.id) ?? []))
-  const technicals = pairs.map((pair: Pair) => deriveTechnicalSnapshot(pair, priceSeries.filter((series) => series.pairId === pair.id)))
-  const derivedFallback = deriveFallbackForecasts(pairs, priceSeries, technicals)
+  const priceSeries = validPairs.flatMap((pair: Pair) => derivePriceSeries(pair, historyByPair.get(pair.id) ?? []))
+  const technicals = validPairs.map((pair: Pair) => deriveTechnicalSnapshot(pair, priceSeries.filter((series) => series.pairId === pair.id)))
+  const derivedFallback = deriveFallbackForecasts(validPairs, priceSeries, technicals)
   const forecastByPair = new Map(forecasts.map((forecast: Forecast) => [forecast.pairId, forecast]))
-  const hydratedForecasts = pairs.map((pair: Pair) => forecastByPair.get(pair.id) ?? derivedFallback.find((forecast) => forecast.pairId === pair.id)!).filter(Boolean)
+  const hydratedForecasts = validPairs.map((pair: Pair) => forecastByPair.get(pair.id) ?? derivedFallback.find((forecast) => forecast.pairId === pair.id)!).filter(Boolean)
 
   const portfoliosByUser = new Map(portfolios.map((portfolio: PortfolioAccount) => [portfolio.userId, portfolio.id]))
   const users = userRows.rows.map(mapUser).map((user: User) => ({
@@ -209,7 +211,7 @@ export const loadBootstrap = async (database: Pool, request: Request): Promise<B
   const seed: SeedData = {
     users,
     currencies,
-    pairs,
+    pairs: validPairs,
     priceSeries,
     technicals,
     events,

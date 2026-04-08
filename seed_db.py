@@ -50,14 +50,7 @@ def main():
         # ---------- PART 1 & 2: PAIR AND DAILY RATES ----------
         print("\n=== Seeding Pairs and Rates ===")
         # Insert EURUSD into the pairs table
-        print("[*] Inserting EURUSD into pairs table...")
-        insert_pair_query = """
-            INSERT INTO pairs (id, payload)
-            VALUES (%s, %s::jsonb)
-            ON CONFLICT (id) DO NOTHING;
-        """
-        cursor.execute(insert_pair_query, ('EURUSD', json.dumps({"base": "EUR", "quote": "USD", "label": "Euro / US Dollar"})))
-        print("[+] EURUSD pair ensured in database.")
+        # Let the frontend express backend seed the fully structured eur-usd Pair model first.
 
         search_dirs = [
             os.path.join(os.getcwd(), 'data'),
@@ -92,7 +85,7 @@ def main():
                                             close_rate = parts[4]
                                             try:
                                                 traded_on = datetime.strptime(date_str, '%Y%m%d').date()
-                                                records_to_insert.append(('EURUSD', traded_on, close_rate))
+                                                records_to_insert.append(('eur-usd', traded_on, close_rate))
                                             except ValueError:
                                                 continue
                 except Exception as e:
