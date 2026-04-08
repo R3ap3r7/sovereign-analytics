@@ -434,8 +434,9 @@ export const ForecastPage = () => {
         <div className="overflow-x-auto pb-2">
           <div className="flex gap-4">
             {ranked.map(({ forecast, pair }) => {
-              const start = forecast.spotPrice ?? forecast.dailyPath?.[0]?.value ?? forecast.basePath[0]?.value ?? 0
-              const end = forecast.dailyPath?.[Math.min(windowDays, forecast.dailyPath.length) - 1]?.value
+              const activePath = forecast.dailyPath?.length ? forecast.dailyPath : buildFallbackDailyPath(forecast);
+              const start = forecast.spotPrice ?? activePath[0]?.value ?? forecast.basePath[0]?.value ?? 0
+              const end = activePath[Math.min(windowDays, activePath.length) - 1]?.value
                 ?? forecast.basePath.at(-1)?.value
                 ?? start
               const projectedDelta = start ? ((end - start) / start) * 100 : 0
