@@ -26,6 +26,8 @@ export const StrategyLabPage = () => {
   const [exitTrigger, setExitTrigger] = useState('2R or structure failure')
   const [riskPerTrade, setRiskPerTrade] = useState('1.0')
   const [selectedScenarioId, setSelectedScenarioId] = useState('scenario-hawkish-fed')
+  const [journalTitle, setJournalTitle] = useState('')
+  const [journalBody, setJournalBody] = useState('')
   const performanceData = useMemo(
     () =>
       Array.from({ length: 12 }, (_, index) => ({
@@ -92,8 +94,8 @@ export const StrategyLabPage = () => {
             </div>
           </Panel>
 
-          <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-            <div className="space-y-6">
+          <section className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <Panel className="p-6">
                 <SectionTitle eyebrow="Rules" title="Rule builder" detail="Adjust the simplified entry, exit, and risk assumptions for the current strategy template." />
                 <div className="grid gap-4">
@@ -137,7 +139,7 @@ export const StrategyLabPage = () => {
               </Panel>
             </div>
 
-            <section className="space-y-6">
+            <div className="space-y-6">
               <Panel className="p-6">
                 <SectionTitle eyebrow="Performance" title="Historical run" detail="Illustrative performance view for how the strategy could be presented inside the product." />
                 <PerformanceChart data={performanceData} labelKey="label" valueKey="equity" />
@@ -180,7 +182,7 @@ export const StrategyLabPage = () => {
                   ))}
                 </div>
               </Panel>
-            </section>
+            </div>
           </section>
         </div>
 
@@ -236,9 +238,46 @@ export const StrategyLabPage = () => {
             </button>
           </Panel>
 
-          <Panel>
+          <Panel className="p-6">
             <SectionTitle eyebrow="Illustration" title="Forecast overlay" />
             <ForecastChart forecast={data.forecast} />
+          </Panel>
+
+          <Panel className="p-6">
+            <SectionTitle eyebrow="Tracking" title="Watchlist" detail="Pairs actively tracked by this strategy" />
+            <div className="space-y-2 flex flex-col">
+              {['eur-usd', 'gbp-usd', 'aud-jpy', 'usd-cad'].map((pairId) => (
+                <div className="flex items-center justify-between rounded-[3px] border border-[var(--line)] bg-[color:var(--panel-2)] px-3 py-2.5" key={pairId}>
+                  <span className="text-sm font-medium text-[var(--text)]">{pairId.toUpperCase().replace('-', '/')}</span>
+                  <span className="text-[11px] font-semibold text-[var(--accent)]">Tracking</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel className="p-6">
+            <SectionTitle eyebrow="Journal" title="Strategy Notes" />
+            <div className="space-y-3">
+              <input
+                className="w-full bg-[color:var(--panel-2)] px-4 py-3 outline-none text-sm placeholder:text-[var(--muted)]"
+                placeholder="Note title"
+                value={journalTitle}
+                onChange={(event) => setJournalTitle(event.target.value)}
+              />
+              <textarea
+                className="min-h-24 w-full bg-[color:var(--panel-2)] px-4 py-3 outline-none text-sm placeholder:text-[var(--muted)]"
+                placeholder="Observation details..."
+                value={journalBody}
+                onChange={(event) => setJournalBody(event.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => { setJournalTitle(''); setJournalBody(''); }}
+                className="w-full bg-[color:var(--panel-2)] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text)] hover:bg-[color:var(--panel-3)] transition"
+              >
+                Save Protocol
+              </button>
+            </div>
           </Panel>
         </aside>
       </div>

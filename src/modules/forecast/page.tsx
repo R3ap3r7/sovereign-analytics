@@ -395,7 +395,7 @@ export const ForecastPage = () => {
             </div>
           </div>
 
-          <div className="bg-[color:var(--panel)] p-6">
+          <div className="overflow-hidden bg-[color:var(--panel)] p-6">
             <h3 className="mb-6 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Holdout evaluation</h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left">

@@ -72,7 +72,7 @@ export const PortfolioPage = () => {
         <CompactMetric label="Realized pnl" tone={realizedTotal >= 0 ? 'up' : 'down'} value={formatCurrency(realizedTotal)} />
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="overflow-hidden bg-[color:var(--panel)]">
           <div className="flex items-center justify-between bg-[color:var(--panel-2)] px-4 py-2">
             <div className="flex items-center gap-4">
@@ -240,7 +240,7 @@ export const PortfolioPage = () => {
         </section>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="overflow-hidden bg-[color:var(--panel)]">
             <div className="bg-[color:var(--panel-2)] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text)]">
